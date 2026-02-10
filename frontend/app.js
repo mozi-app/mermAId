@@ -1,5 +1,27 @@
-import { EditorView, basicSetup } from 'codemirror';
+import {
+    EditorView,
+    keymap,
+    lineNumbers,
+    highlightActiveLineGutter,
+    highlightSpecialChars,
+    drawSelection,
+    dropCursor,
+    rectangularSelection,
+    crosshairCursor,
+    highlightActiveLine,
+} from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
+import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+import {
+    foldGutter,
+    indentOnInput,
+    syntaxHighlighting,
+    defaultHighlightStyle,
+    bracketMatching,
+    foldKeymap,
+} from '@codemirror/language';
+import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
+import { lintKeymap } from '@codemirror/lint';
 import { vim } from '@replit/codemirror-vim';
 import mermaid from 'mermaid';
 import panzoom from 'panzoom';
@@ -70,7 +92,28 @@ const editor = new EditorView({
         doc: STARTER_DIAGRAM,
         extensions: [
             vim(),
-            basicSetup,
+            lineNumbers(),
+            highlightActiveLineGutter(),
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            bracketMatching(),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightActiveLine(),
+            highlightSelectionMatches(),
+            keymap.of([
+                ...defaultKeymap,
+                ...searchKeymap,
+                ...historyKeymap,
+                ...foldKeymap,
+                ...lintKeymap,
+            ]),
             lightTheme,
             mermaidLanguage(),
             mermaidLinter(),
@@ -153,6 +196,39 @@ floatingIcon.addEventListener('click', () => {
 // After transition ends, tell CodeMirror to recalculate
 const editorPane = document.getElementById('editor-pane');
 editorPane.addEventListener('transitionend', () => {
+    editor.requestMeasure();
+});
+
+// Divider drag-to-resize
+const divider = document.getElementById('divider');
+let isDragging = false;
+
+divider.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    isDragging = true;
+    divider.classList.add('dragging');
+    editorPane.style.transition = 'none';
+    divider.style.transition = 'none';
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const minWidth = 150;
+    const maxWidth = window.innerWidth - 150;
+    const width = Math.min(maxWidth, Math.max(minWidth, e.clientX));
+    editorPane.style.width = width + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    divider.classList.remove('dragging');
+    editorPane.style.transition = '';
+    divider.style.transition = '';
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
     editor.requestMeasure();
 });
 

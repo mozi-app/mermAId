@@ -102,7 +102,6 @@ func startServer() bool {
 	server = &http.Server{Handler: mux}
 
 	fmt.Printf("Mermaid editor running at %s\n", url)
-	go openBrowser(url)
 
 	go func() {
 		if err := server.Serve(listener); err != http.ErrServerClosed {

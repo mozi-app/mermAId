@@ -77,7 +77,12 @@ html, body {
     background: #f0d9a0;
     cursor: col-resize;
     flex-shrink: 0;
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, background 0.15s;
+}
+
+#divider:hover,
+#divider.dragging {
+    background: #e17055;
 }
 
 /* Preview pane */

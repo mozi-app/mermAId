@@ -4,13 +4,18 @@ package main
 
 /*
 #cgo CFLAGS: -x objective-c
-#cgo LDFLAGS: -framework Cocoa
+#cgo LDFLAGS: -framework Cocoa -framework WebKit
 
-void runApp(void);
+#include <stdlib.h>
+
+void runApp(const char *url);
 */
 import "C"
 
-import "runtime"
+import (
+	"runtime"
+	"unsafe"
+)
 
 func init() {
 	runtime.LockOSThread()
@@ -30,5 +35,7 @@ func main() {
 	if !startServer() {
 		return
 	}
-	C.runApp()
+	curl := C.CString(serverURL)
+	defer C.free(unsafe.Pointer(curl))
+	C.runApp(curl)
 }
