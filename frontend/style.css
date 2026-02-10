@@ -1,0 +1,281 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #fffdf7;
+    color: #2d3436;
+    overflow: hidden;
+}
+
+#container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Editor pane */
+#editor-pane {
+    width: 40%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fffdf7;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+#editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fff4e0;
+    border-bottom: 1px solid #f0d9a0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e17055;
+    flex-shrink: 0;
+}
+
+#editor-header button {
+    background: none;
+    border: 1px solid #f0d9a0;
+    color: #e17055;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background 0.15s, color 0.15s;
+}
+
+#editor-header button:hover {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+#editor {
+    flex: 1;
+    overflow: hidden;
+}
+
+#editor .cm-editor {
+    height: 100%;
+}
+
+#editor .cm-scroller {
+    overflow: auto;
+}
+
+/* Divider */
+#divider {
+    width: 4px;
+    background: #f0d9a0;
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: width 0.3s ease;
+}
+
+/* Preview pane */
+#preview-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    min-width: 0;
+}
+
+#preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fff4e0;
+    border-bottom: 1px solid #f0d9a0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e17055;
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+#preview-header-buttons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+#preview-header button {
+    background: none;
+    border: 1px solid #f0d9a0;
+    color: #e17055;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background 0.15s, color 0.15s;
+}
+
+#preview-header button:hover {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+/* Download dropdown */
+.download-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+#download-btn {
+    background: none;
+    border: 1px solid #f0d9a0;
+    color: #e17055;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background 0.15s, color 0.15s;
+}
+
+#download-btn:hover {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+.download-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #ffffff;
+    border: 1px solid #f0d9a0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    min-width: 140px;
+    overflow: hidden;
+}
+
+.download-menu.open {
+    display: block;
+}
+
+.download-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #2d3436;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.download-menu button:hover {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+.download-menu button + button {
+    border-top: 1px solid #f0d9a0;
+}
+
+#preview {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#preview svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Collapsed state */
+.collapsed #editor-pane {
+    width: 0;
+}
+
+.collapsed #divider {
+    width: 0;
+}
+
+/* Floating restore icon */
+#floating-icon {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #fdcb6e;
+    color: #d63031;
+    border: 2px solid #f0d9a0;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: background 0.15s, transform 0.15s;
+}
+
+#floating-icon:hover {
+    background: #ffeaa7;
+    transform: scale(1.1);
+}
+
+#floating-icon.hidden {
+    display: none;
+}
+
+/* CodeMirror light theme overrides */
+#editor .cm-editor {
+    background: #fffdf7;
+}
+
+#editor .cm-gutters {
+    background: #fff4e0;
+    border-right: 1px solid #f0d9a0;
+    color: #e17055;
+}
+
+#editor .cm-activeLineGutter {
+    background: #ffeaa7;
+}
+
+#editor .cm-activeLine {
+    background: rgba(253, 203, 110, 0.15);
+}
+
+#editor .cm-cursor {
+    border-left-color: #e17055;
+}
+
+#editor .cm-selectionBackground {
+    background: rgba(116, 185, 255, 0.25) !important;
+}
+
+#editor .cm-content {
+    color: #2d3436;
+    caret-color: #e17055;
+}
+
+/* Lint error tooltip styling */
+.cm-tooltip-lint {
+    background: #ffffff !important;
+    color: #2d3436 !important;
+    border: 1px solid #f0d9a0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}

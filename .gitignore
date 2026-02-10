@@ -1,0 +1,6 @@
+node_modules/
+static/bundle.js
+static/bundle.js.map
+static/style.css
+mermaid-editor
+*.tar.gz

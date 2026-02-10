@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mermaid Sequence Diagram Editor</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="container">
+        <div id="editor-pane">
+            <div id="editor-header">
+                <span>Editor</span>
+                <button id="collapse-btn" title="Collapse editor">&#x25C0;</button>
+            </div>
+            <div id="editor"></div>
+        </div>
+        <div id="divider"></div>
+        <div id="preview-pane">
+            <div id="preview-header">
+                <span>Preview</span>
+                <div id="preview-header-buttons">
+                    <button id="reset-zoom-btn" title="Reset zoom">Reset Zoom</button>
+                    <div class="download-wrapper">
+                        <button id="download-btn" title="Download diagram">Download &#x25BE;</button>
+                        <div class="download-menu" id="download-menu">
+                            <button id="download-svg">Save as SVG</button>
+                            <button id="download-png">Save as PNG</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="preview"></div>
+        </div>
+    </div>
+    <button id="floating-icon" class="hidden" title="Restore editor">&#x270E;</button>
+    <script src="/bundle.js"></script>
+</body>
+</html>

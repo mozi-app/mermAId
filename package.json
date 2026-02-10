@@ -1,0 +1,24 @@
+{
+  "name": "mermaid",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@codemirror/language": "^6.12.1",
+    "@codemirror/lint": "^6.9.3",
+    "@replit/codemirror-vim": "^6.3.0",
+    "codemirror": "^6.0.2",
+    "mermaid": "^11.12.2",
+    "panzoom": "^9.4.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.3"
+  }
+}
