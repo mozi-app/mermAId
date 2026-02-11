@@ -2,7 +2,9 @@ package main
 
 import (
 	"embed"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -15,6 +17,8 @@ import (
 	"strings"
 	"syscall"
 )
+
+const ollamaBase = "http://localhost:11434"
 
 //go:embed static
 var staticFiles embed.FS
@@ -97,6 +101,9 @@ func startServer() bool {
 	writeState(port)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/ollama/chat", handleOllamaChat)
+	mux.HandleFunc("GET /api/ollama/tags", handleOllamaTags)
+	mux.HandleFunc("POST /api/download", handleDownload)
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
 	server = &http.Server{Handler: mux}
@@ -110,6 +117,77 @@ func startServer() bool {
 	}()
 
 	return true
+}
+
+func handleOllamaChat(w http.ResponseWriter, r *http.Request) {
+	resp, err := http.Post(ollamaBase+"/api/chat", "application/json", r.Body)
+	if err != nil {
+		http.Error(w, "Ollama not reachable", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Cache-Control", "no-cache")
+	flusher, ok := w.(http.Flusher)
+
+	buf := make([]byte, 4096)
+	for {
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			w.Write(buf[:n])
+			if ok {
+				flusher.Flush()
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+}
+
+func handleOllamaTags(w http.ResponseWriter, r *http.Request) {
+	resp, err := http.Get(ollamaBase + "/api/tags")
+	if err != nil {
+		http.Error(w, "Ollama not reachable", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "application/json")
+	io.Copy(w, resp.Body)
+}
+
+func handleDownload(w http.ResponseWriter, r *http.Request) {
+	filename := r.FormValue("filename")
+	contentType := r.FormValue("content_type")
+	data := r.FormValue("data")
+	encoding := r.FormValue("encoding")
+
+	if filename == "" || data == "" {
+		http.Error(w, "missing filename or data", http.StatusBadRequest)
+		return
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	var body []byte
+	if encoding == "base64" {
+		var err error
+		body, err = base64.StdEncoding.DecodeString(data)
+		if err != nil {
+			http.Error(w, "invalid base64 data", http.StatusBadRequest)
+			return
+		}
+	} else {
+		body = []byte(data)
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	w.Write(body)
 }
 
 func shutdown() {

@@ -11,7 +11,7 @@ import {
     highlightActiveLine,
 } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
-import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+import { history, undo, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import {
     foldGutter,
     indentOnInput,
@@ -24,7 +24,6 @@ import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import { vim } from '@replit/codemirror-vim';
 import mermaid from 'mermaid';
-import panzoom from 'panzoom';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
 
 // Initialize mermaid
@@ -56,8 +55,88 @@ const STARTER_DIAGRAM = `sequenceDiagram
     Charlie-->>Alice: Likewise!
 `;
 
+// SVG viewBox-based pan/zoom (vector-clean, no rasterization)
+function createSvgPanZoom(svgEl) {
+    const vb = svgEl.viewBox.baseVal;
+    const orig = { x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+
+    // Make SVG fill its container; viewBox controls what's visible
+    svgEl.setAttribute('width', '100%');
+    svgEl.setAttribute('height', '100%');
+    svgEl.style.cursor = 'grab';
+
+    let isPanning = false;
+    let start = { x: 0, y: 0 };
+    let startVB = { x: 0, y: 0 };
+
+    const onWheel = (e) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
+        const rect = svgEl.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+        const newW = vb.width * factor;
+        const newH = vb.height * factor;
+        vb.x += (vb.width - newW) * mx;
+        vb.y += (vb.height - newH) * my;
+        vb.width = newW;
+        vb.height = newH;
+    };
+
+    const onMouseDown = (e) => {
+        if (e.button !== 0) return;
+        isPanning = true;
+        start = { x: e.clientX, y: e.clientY };
+        startVB = { x: vb.x, y: vb.y };
+        svgEl.style.cursor = 'grabbing';
+        e.preventDefault();
+    };
+
+    const onMouseMove = (e) => {
+        if (!isPanning) return;
+        const rect = svgEl.getBoundingClientRect();
+        vb.x = startVB.x - (e.clientX - start.x) * (vb.width / rect.width);
+        vb.y = startVB.y - (e.clientY - start.y) * (vb.height / rect.height);
+    };
+
+    const onMouseUp = () => {
+        if (!isPanning) return;
+        isPanning = false;
+        svgEl.style.cursor = 'grab';
+    };
+
+    svgEl.addEventListener('wheel', onWheel, { passive: false });
+    svgEl.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    return {
+        getTransform() {
+            return { x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+        },
+        setTransform(t) {
+            vb.x = t.x;
+            vb.y = t.y;
+            vb.width = t.width;
+            vb.height = t.height;
+        },
+        resetZoom() {
+            vb.x = orig.x;
+            vb.y = orig.y;
+            vb.width = orig.width;
+            vb.height = orig.height;
+        },
+        dispose() {
+            svgEl.removeEventListener('wheel', onWheel);
+            svgEl.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        },
+    };
+}
+
 // State
-let panzoomInstance = null;
+let panZoomInstance = null;
 let debounceTimer = null;
 let renderCounter = 0;
 
@@ -68,6 +147,18 @@ const previewEl = document.getElementById('preview');
 const collapseBtn = document.getElementById('collapse-btn');
 const floatingIcon = document.getElementById('floating-icon');
 const resetZoomBtn = document.getElementById('reset-zoom-btn');
+
+// Prompt pane DOM elements
+const aiToggleBtn = document.getElementById('ai-toggle-btn');
+const promptPane = document.getElementById('prompt-pane');
+const modelSelect = document.getElementById('model-select');
+const promptClearBtn = document.getElementById('prompt-clear-btn');
+const promptCloseBtn = document.getElementById('prompt-close-btn');
+const promptResponse = document.getElementById('prompt-response');
+const promptInput = document.getElementById('prompt-input');
+const promptSubmitBtn = document.getElementById('prompt-submit');
+const promptApplyBtn = document.getElementById('prompt-apply');
+const promptUndoBtn = document.getElementById('prompt-undo');
 
 // Light theme for CodeMirror
 const lightTheme = EditorView.theme({
@@ -152,29 +243,24 @@ async function renderDiagram(code) {
         // Discard if a newer render has started
         if (thisRender !== renderCounter) return;
 
-        // Save current transform before replacing
+        // Save current viewBox before replacing
         let savedTransform = null;
-        if (panzoomInstance) {
-            savedTransform = panzoomInstance.getTransform();
-            panzoomInstance.dispose();
-            panzoomInstance = null;
+        if (panZoomInstance) {
+            savedTransform = panZoomInstance.getTransform();
+            panZoomInstance.dispose();
+            panZoomInstance = null;
         }
 
         previewEl.innerHTML = svg;
 
-        // Initialize panzoom on the new SVG
+        // Initialize viewBox-based pan/zoom on the new SVG
         const svgEl = previewEl.querySelector('svg');
         if (svgEl) {
-            panzoomInstance = panzoom(svgEl, {
-                maxZoom: 10,
-                minZoom: 0.1,
-                smoothScroll: false,
-            });
+            panZoomInstance = createSvgPanZoom(svgEl);
 
-            // Restore transform if we had one
+            // Restore viewBox if we had one
             if (savedTransform) {
-                panzoomInstance.moveTo(savedTransform.x, savedTransform.y);
-                panzoomInstance.zoomAbs(savedTransform.x, savedTransform.y, savedTransform.scale);
+                panZoomInstance.setTransform(savedTransform);
             }
         }
     } catch (e) {
@@ -234,9 +320,8 @@ document.addEventListener('mouseup', () => {
 
 // Reset Zoom
 resetZoomBtn.addEventListener('click', () => {
-    if (panzoomInstance) {
-        panzoomInstance.moveTo(0, 0);
-        panzoomInstance.zoomAbs(0, 0, 1);
+    if (panZoomInstance) {
+        panZoomInstance.resetZoom();
     }
 });
 
@@ -259,21 +344,31 @@ downloadMenu.addEventListener('click', (e) => {
     e.stopPropagation();
 });
 
-function downloadFile(filename, url) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+function downloadViaServer(filename, contentType, data, encoding) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/api/download';
+    form.style.display = 'none';
+
+    const fields = { filename, content_type: contentType, data, encoding: encoding || '' };
+    for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
 
 downloadSvgBtn.addEventListener('click', () => {
     const svgEl = previewEl.querySelector('svg');
     if (!svgEl) return;
     const svgData = new XMLSerializer().serializeToString(svgEl);
-    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    downloadFile('diagram.svg', URL.createObjectURL(blob));
+    downloadViaServer('diagram.svg', 'image/svg+xml', svgData);
     downloadMenu.classList.remove('open');
 });
 
@@ -281,8 +376,7 @@ downloadPngBtn.addEventListener('click', () => {
     const svgEl = previewEl.querySelector('svg');
     if (!svgEl) return;
     const svgData = new XMLSerializer().serializeToString(svgEl);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
+    const svgDataURI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
     const img = new Image();
     img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -294,13 +388,238 @@ downloadPngBtn.addEventListener('click', () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, img.width, img.height);
         ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        canvas.toBlob((blob) => {
-            downloadFile('diagram.png', URL.createObjectURL(blob));
-        }, 'image/png');
+        const pngDataUrl = canvas.toDataURL('image/png');
+        const base64 = pngDataUrl.split(',')[1];
+        downloadViaServer('diagram.png', 'image/png', base64, 'base64');
     };
-    img.src = url;
+    img.src = svgDataURI;
     downloadMenu.classList.remove('open');
+});
+
+// ── AI Prompt Pane ──────────────────────────────────────────────────────────
+
+let modelsLoaded = false;
+let isStreaming = false;
+let conversationHistory = [];
+let lastExtractedCode = null;
+let abortController = null;
+
+const SYSTEM_PROMPT = `You are a Mermaid diagram assistant. The user will provide their current diagram and a request.
+When modifying the diagram, return the complete updated diagram inside a \`\`\`mermaid code fence.
+Provide a brief explanation outside the code fence. Do not include partial diagrams.`;
+
+function togglePromptPane() {
+    const isHidden = promptPane.classList.toggle('hidden');
+    aiToggleBtn.classList.toggle('active', !isHidden);
+    editor.requestMeasure();
+    if (!isHidden && !modelsLoaded) {
+        fetchModels();
+    }
+    if (!isHidden) {
+        promptInput.focus();
+    }
+}
+
+aiToggleBtn.addEventListener('click', togglePromptPane);
+promptCloseBtn.addEventListener('click', togglePromptPane);
+
+// Keyboard shortcut: Ctrl+Shift+A
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        togglePromptPane();
+    }
+});
+
+// Fetch available models
+async function fetchModels() {
+    try {
+        const resp = await fetch('/api/ollama/tags');
+        if (!resp.ok) throw new Error('Ollama not reachable');
+        const data = await resp.json();
+        modelSelect.innerHTML = '';
+        if (data.models && data.models.length > 0) {
+            for (const m of data.models) {
+                const opt = document.createElement('option');
+                opt.value = m.name;
+                opt.textContent = m.name;
+                modelSelect.appendChild(opt);
+            }
+        } else {
+            modelSelect.innerHTML = '<option value="">No models found</option>';
+        }
+        modelsLoaded = true;
+    } catch (e) {
+        modelSelect.innerHTML = '<option value="">Ollama unavailable</option>';
+        promptResponse.textContent = 'Could not connect to Ollama. Is it running on localhost:11434?';
+    }
+}
+
+// Clear conversation
+promptClearBtn.addEventListener('click', () => {
+    conversationHistory = [];
+    promptResponse.textContent = '';
+    lastExtractedCode = null;
+    promptApplyBtn.classList.add('hidden');
+    promptUndoBtn.classList.add('hidden');
+});
+
+// Extract code block from AI response
+function extractCodeBlock(text) {
+    const match = text.match(/```(?:mermaid)?\s*\n([\s\S]*?)```/);
+    return match ? match[1].trim() : null;
+}
+
+// Submit prompt
+async function submitPrompt() {
+    const userPrompt = promptInput.value.trim();
+    if (!userPrompt || isStreaming) return;
+
+    const model = modelSelect.value;
+    if (!model) {
+        promptResponse.textContent = 'No model selected. Is Ollama running?';
+        return;
+    }
+
+    const editorContent = editor.state.doc.toString();
+
+    // Build messages
+    if (conversationHistory.length === 0) {
+        conversationHistory.push({ role: 'system', content: SYSTEM_PROMPT });
+    }
+
+    conversationHistory.push({
+        role: 'user',
+        content: `Current diagram:\n\`\`\`mermaid\n${editorContent}\n\`\`\`\n\nRequest: ${userPrompt}`,
+    });
+
+    // UI state
+    isStreaming = true;
+    promptSubmitBtn.disabled = true;
+    promptSubmitBtn.textContent = '...';
+    promptApplyBtn.classList.add('hidden');
+    promptUndoBtn.classList.add('hidden');
+    lastExtractedCode = null;
+    promptInput.value = '';
+    promptResponse.textContent = '';
+
+    // Add streaming cursor
+    const cursor = document.createElement('span');
+    cursor.className = 'streaming-cursor';
+    promptResponse.appendChild(cursor);
+
+    abortController = new AbortController();
+
+    try {
+        const resp = await fetch('/api/ollama/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model,
+                messages: conversationHistory,
+                stream: true,
+                options: { num_ctx: 8192 },
+            }),
+            signal: abortController.signal,
+        });
+
+        if (!resp.ok) {
+            throw new Error(`Ollama error: ${resp.status}`);
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // keep incomplete line in buffer
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                    const chunk = JSON.parse(line);
+                    const content = chunk.message?.content || '';
+                    fullResponse += content;
+                    // Update display: text before cursor
+                    promptResponse.textContent = fullResponse;
+                    promptResponse.appendChild(cursor);
+                    promptResponse.scrollTop = promptResponse.scrollHeight;
+                } catch {
+                    // skip malformed JSON lines
+                }
+            }
+        }
+
+        // Process any remaining buffer
+        if (buffer.trim()) {
+            try {
+                const chunk = JSON.parse(buffer);
+                fullResponse += chunk.message?.content || '';
+            } catch {
+                // skip
+            }
+        }
+
+        // Finalize
+        promptResponse.textContent = fullResponse;
+        promptResponse.scrollTop = promptResponse.scrollHeight;
+
+        // Save assistant response to history
+        conversationHistory.push({ role: 'assistant', content: fullResponse });
+
+        // Check for code block
+        lastExtractedCode = extractCodeBlock(fullResponse);
+        if (lastExtractedCode) {
+            promptApplyBtn.classList.remove('hidden');
+        }
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            promptResponse.textContent += '\n\n[Cancelled]';
+        } else {
+            promptResponse.textContent = `Error: ${e.message}`;
+        }
+    } finally {
+        isStreaming = false;
+        promptSubmitBtn.disabled = false;
+        promptSubmitBtn.textContent = 'Send';
+        abortController = null;
+        cursor.remove();
+    }
+}
+
+promptSubmitBtn.addEventListener('click', submitPrompt);
+
+// Enter to submit, Shift+Enter for newline
+promptInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitPrompt();
+    }
+});
+
+// Apply changes
+promptApplyBtn.addEventListener('click', () => {
+    if (!lastExtractedCode) return;
+    editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: lastExtractedCode },
+    });
+    promptApplyBtn.classList.add('hidden');
+    promptUndoBtn.classList.remove('hidden');
+    promptResponse.textContent += '\n\n— Applied. Press u (Vim) or Ctrl+Z to undo.';
+    promptResponse.scrollTop = promptResponse.scrollHeight;
+});
+
+// Undo
+promptUndoBtn.addEventListener('click', () => {
+    undo(editor);
+    promptUndoBtn.classList.add('hidden');
+    promptApplyBtn.classList.remove('hidden');
 });
 
 // Initial render

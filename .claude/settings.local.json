@@ -9,7 +9,11 @@
       "Bash(go mod init:*)",
       "Bash(curl:*)",
       "Bash(/usr/libexec/PlistBuddy:*)",
-      "Bash(codesign:*)"
+      "Bash(codesign:*)",
+      "WebFetch(domain:docs.ollama.com)",
+      "WebFetch(domain:ollama.readthedocs.io)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:ollama.com)"
     ]
   }
 }

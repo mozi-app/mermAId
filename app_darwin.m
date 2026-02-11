@@ -23,7 +23,9 @@ extern void goOpenBrowser(void);
 		            backing:NSBackingStoreBuffered
 		              defer:NO];
 	[self.window setTitle:@"Mermaid Editor"];
-	[self.window center];
+	if (![self.window setFrameAutosaveName:@"MermaidEditorMain"]) {
+		[self.window center];
+	}
 
 	WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
 	self.webView = [[WKWebView alloc] initWithFrame:frame configuration:config];
