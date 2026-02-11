@@ -12,32 +12,10 @@
             <div id="editor-header">
                 <span>Editor</span>
                 <div id="editor-header-buttons">
-                    <button id="ai-toggle-btn" title="Toggle AI prompt pane">AI</button>
                     <button id="collapse-btn" title="Collapse editor">&#x25C0;</button>
                 </div>
             </div>
             <div id="editor"></div>
-            <div id="prompt-pane" class="hidden">
-                <div id="prompt-header">
-                    <span>AI Assistant</span>
-                    <div id="prompt-header-controls">
-                        <select id="model-select" title="Select model">
-                            <option value="">Loading models...</option>
-                        </select>
-                        <button id="prompt-clear-btn" title="Clear conversation">Clear</button>
-                        <button id="prompt-close-btn" title="Close AI pane">&#x2715;</button>
-                    </div>
-                </div>
-                <div id="prompt-response"></div>
-                <div id="prompt-input-area">
-                    <textarea id="prompt-input" placeholder="Ask AI to modify your diagram..." rows="2"></textarea>
-                    <div id="prompt-buttons">
-                        <button id="prompt-submit" title="Send prompt">Send</button>
-                        <button id="prompt-apply" class="hidden" title="Apply changes to editor">Apply</button>
-                        <button id="prompt-undo" class="hidden" title="Undo applied changes">Undo</button>
-                    </div>
-                </div>
-            </div>
         </div>
         <div id="divider"></div>
         <div id="preview-pane">

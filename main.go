@@ -4,7 +4,6 @@ import (
 	"embed"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -18,13 +17,12 @@ import (
 	"syscall"
 )
 
-const ollamaBase = "http://localhost:11434"
-
 //go:embed static
 var staticFiles embed.FS
 
 var server *http.Server
 var serverURL string
+var diagram *DiagramState
 
 func stateDir() string {
 	dir, err := os.UserCacheDir()
@@ -100,9 +98,12 @@ func startServer() bool {
 	serverURL = url
 	writeState(port)
 
+	diagram = NewDiagramState("")
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/ollama/chat", handleOllamaChat)
-	mux.HandleFunc("GET /api/ollama/tags", handleOllamaTags)
+	mux.HandleFunc("GET /api/diagram", diagram.handleGetDiagram)
+	mux.HandleFunc("PUT /api/diagram", diagram.handleSetDiagram)
+	mux.HandleFunc("GET /api/events", diagram.handleDiagramSSE)
 	mux.HandleFunc("POST /api/download", handleDownload)
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
@@ -117,45 +118,6 @@ func startServer() bool {
 	}()
 
 	return true
-}
-
-func handleOllamaChat(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Post(ollamaBase+"/api/chat", "application/json", r.Body)
-	if err != nil {
-		http.Error(w, "Ollama not reachable", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	w.Header().Set("Content-Type", "application/x-ndjson")
-	w.Header().Set("Cache-Control", "no-cache")
-	flusher, ok := w.(http.Flusher)
-
-	buf := make([]byte, 4096)
-	for {
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			w.Write(buf[:n])
-			if ok {
-				flusher.Flush()
-			}
-		}
-		if err != nil {
-			break
-		}
-	}
-}
-
-func handleOllamaTags(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(ollamaBase + "/api/tags")
-	if err != nil {
-		http.Error(w, "Ollama not reachable", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	w.Header().Set("Content-Type", "application/json")
-	io.Copy(w, resp.Body)
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request) {

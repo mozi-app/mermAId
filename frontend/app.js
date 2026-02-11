@@ -11,7 +11,7 @@ import {
     highlightActiveLine,
 } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
-import { history, undo, defaultKeymap, historyKeymap } from '@codemirror/commands';
+import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import {
     foldGutter,
     indentOnInput,
@@ -138,7 +138,9 @@ function createSvgPanZoom(svgEl) {
 // State
 let panZoomInstance = null;
 let debounceTimer = null;
+let syncTimer = null;
 let renderCounter = 0;
+let isExternalUpdate = false;
 
 // DOM elements
 const container = document.getElementById('container');
@@ -147,18 +149,6 @@ const previewEl = document.getElementById('preview');
 const collapseBtn = document.getElementById('collapse-btn');
 const floatingIcon = document.getElementById('floating-icon');
 const resetZoomBtn = document.getElementById('reset-zoom-btn');
-
-// Prompt pane DOM elements
-const aiToggleBtn = document.getElementById('ai-toggle-btn');
-const promptPane = document.getElementById('prompt-pane');
-const modelSelect = document.getElementById('model-select');
-const promptClearBtn = document.getElementById('prompt-clear-btn');
-const promptCloseBtn = document.getElementById('prompt-close-btn');
-const promptResponse = document.getElementById('prompt-response');
-const promptInput = document.getElementById('prompt-input');
-const promptSubmitBtn = document.getElementById('prompt-submit');
-const promptApplyBtn = document.getElementById('prompt-apply');
-const promptUndoBtn = document.getElementById('prompt-undo');
 
 // Light theme for CodeMirror
 const lightTheme = EditorView.theme({
@@ -211,6 +201,9 @@ const editor = new EditorView({
             EditorView.updateListener.of((update) => {
                 if (update.docChanged) {
                     scheduleRender();
+                    if (!isExternalUpdate) {
+                        scheduleSyncToServer();
+                    }
                 }
             }),
         ],
@@ -396,231 +389,51 @@ downloadPngBtn.addEventListener('click', () => {
     downloadMenu.classList.remove('open');
 });
 
-// ── AI Prompt Pane ──────────────────────────────────────────────────────────
+// ── Server sync ─────────────────────────────────────────────────────────────
 
-let modelsLoaded = false;
-let isStreaming = false;
-let conversationHistory = [];
-let lastExtractedCode = null;
-let abortController = null;
-
-const SYSTEM_PROMPT = `You are a Mermaid diagram assistant. The user will provide their current diagram and a request.
-When modifying the diagram, return the complete updated diagram inside a \`\`\`mermaid code fence.
-Provide a brief explanation outside the code fence. Do not include partial diagrams.`;
-
-function togglePromptPane() {
-    const isHidden = promptPane.classList.toggle('hidden');
-    aiToggleBtn.classList.toggle('active', !isHidden);
-    editor.requestMeasure();
-    if (!isHidden && !modelsLoaded) {
-        fetchModels();
-    }
-    if (!isHidden) {
-        promptInput.focus();
-    }
-}
-
-aiToggleBtn.addEventListener('click', togglePromptPane);
-promptCloseBtn.addEventListener('click', togglePromptPane);
-
-// Keyboard shortcut: Ctrl+Shift+A
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-        e.preventDefault();
-        togglePromptPane();
-    }
-});
-
-// Fetch available models
-async function fetchModels() {
-    try {
-        const resp = await fetch('/api/ollama/tags');
-        if (!resp.ok) throw new Error('Ollama not reachable');
-        const data = await resp.json();
-        modelSelect.innerHTML = '';
-        if (data.models && data.models.length > 0) {
-            for (const m of data.models) {
-                const opt = document.createElement('option');
-                opt.value = m.name;
-                opt.textContent = m.name;
-                modelSelect.appendChild(opt);
-            }
-        } else {
-            modelSelect.innerHTML = '<option value="">No models found</option>';
-        }
-        modelsLoaded = true;
-    } catch (e) {
-        modelSelect.innerHTML = '<option value="">Ollama unavailable</option>';
-        promptResponse.textContent = 'Could not connect to Ollama. Is it running on localhost:11434?';
-    }
-}
-
-// Clear conversation
-promptClearBtn.addEventListener('click', () => {
-    conversationHistory = [];
-    promptResponse.textContent = '';
-    lastExtractedCode = null;
-    promptApplyBtn.classList.add('hidden');
-    promptUndoBtn.classList.add('hidden');
-});
-
-// Extract code block from AI response
-function extractCodeBlock(text) {
-    const match = text.match(/```(?:mermaid)?\s*\n([\s\S]*?)```/);
-    return match ? match[1].trim() : null;
-}
-
-// Submit prompt
-async function submitPrompt() {
-    const userPrompt = promptInput.value.trim();
-    if (!userPrompt || isStreaming) return;
-
-    const model = modelSelect.value;
-    if (!model) {
-        promptResponse.textContent = 'No model selected. Is Ollama running?';
-        return;
-    }
-
-    const editorContent = editor.state.doc.toString();
-
-    // Build messages
-    if (conversationHistory.length === 0) {
-        conversationHistory.push({ role: 'system', content: SYSTEM_PROMPT });
-    }
-
-    conversationHistory.push({
-        role: 'user',
-        content: `Current diagram:\n\`\`\`mermaid\n${editorContent}\n\`\`\`\n\nRequest: ${userPrompt}`,
-    });
-
-    // UI state
-    isStreaming = true;
-    promptSubmitBtn.disabled = true;
-    promptSubmitBtn.textContent = '...';
-    promptApplyBtn.classList.add('hidden');
-    promptUndoBtn.classList.add('hidden');
-    lastExtractedCode = null;
-    promptInput.value = '';
-    promptResponse.textContent = '';
-
-    // Add streaming cursor
-    const cursor = document.createElement('span');
-    cursor.className = 'streaming-cursor';
-    promptResponse.appendChild(cursor);
-
-    abortController = new AbortController();
-
-    try {
-        const resp = await fetch('/api/ollama/chat', {
-            method: 'POST',
+function scheduleSyncToServer() {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+        const content = editor.state.doc.toString();
+        fetch('/api/diagram', {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model,
-                messages: conversationHistory,
-                stream: true,
-                options: { num_ctx: 8192 },
-            }),
-            signal: abortController.signal,
+            body: JSON.stringify({ content, source: 'browser' }),
+        }).catch(() => {
+            // Server unavailable — ignore
         });
-
-        if (!resp.ok) {
-            throw new Error(`Ollama error: ${resp.status}`);
-        }
-
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = '';
-        let buffer = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop(); // keep incomplete line in buffer
-
-            for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                    const chunk = JSON.parse(line);
-                    const content = chunk.message?.content || '';
-                    fullResponse += content;
-                    // Update display: text before cursor
-                    promptResponse.textContent = fullResponse;
-                    promptResponse.appendChild(cursor);
-                    promptResponse.scrollTop = promptResponse.scrollHeight;
-                } catch {
-                    // skip malformed JSON lines
-                }
-            }
-        }
-
-        // Process any remaining buffer
-        if (buffer.trim()) {
-            try {
-                const chunk = JSON.parse(buffer);
-                fullResponse += chunk.message?.content || '';
-            } catch {
-                // skip
-            }
-        }
-
-        // Finalize
-        promptResponse.textContent = fullResponse;
-        promptResponse.scrollTop = promptResponse.scrollHeight;
-
-        // Save assistant response to history
-        conversationHistory.push({ role: 'assistant', content: fullResponse });
-
-        // Check for code block
-        lastExtractedCode = extractCodeBlock(fullResponse);
-        if (lastExtractedCode) {
-            promptApplyBtn.classList.remove('hidden');
-        }
-    } catch (e) {
-        if (e.name === 'AbortError') {
-            promptResponse.textContent += '\n\n[Cancelled]';
-        } else {
-            promptResponse.textContent = `Error: ${e.message}`;
-        }
-    } finally {
-        isStreaming = false;
-        promptSubmitBtn.disabled = false;
-        promptSubmitBtn.textContent = 'Send';
-        abortController = null;
-        cursor.remove();
-    }
+    }, 300);
 }
 
-promptSubmitBtn.addEventListener('click', submitPrompt);
+// Connect to SSE for live updates from external sources (e.g. MCP)
+function connectSSE() {
+    const evtSource = new EventSource('/api/events');
 
-// Enter to submit, Shift+Enter for newline
-promptInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        submitPrompt();
-    }
-});
+    evtSource.onmessage = (e) => {
+        try {
+            const event = JSON.parse(e.data);
+            if (event.source === 'browser') return; // Ignore our own changes
 
-// Apply changes
-promptApplyBtn.addEventListener('click', () => {
-    if (!lastExtractedCode) return;
-    editor.dispatch({
-        changes: { from: 0, to: editor.state.doc.length, insert: lastExtractedCode },
-    });
-    promptApplyBtn.classList.add('hidden');
-    promptUndoBtn.classList.remove('hidden');
-    promptResponse.textContent += '\n\n— Applied. Press u (Vim) or Ctrl+Z to undo.';
-    promptResponse.scrollTop = promptResponse.scrollHeight;
-});
+            const currentContent = editor.state.doc.toString();
+            if (event.content === currentContent) return; // Already in sync
 
-// Undo
-promptUndoBtn.addEventListener('click', () => {
-    undo(editor);
-    promptUndoBtn.classList.add('hidden');
-    promptApplyBtn.classList.remove('hidden');
-});
+            isExternalUpdate = true;
+            editor.dispatch({
+                changes: { from: 0, to: editor.state.doc.length, insert: event.content },
+            });
+            isExternalUpdate = false;
+        } catch {
+            // Ignore malformed events
+        }
+    };
 
-// Initial render
+    evtSource.onerror = () => {
+        // EventSource auto-reconnects
+    };
+}
+
+connectSSE();
+
+// Initial render and sync to server
 renderDiagram(STARTER_DIAGRAM);
+scheduleSyncToServer();
