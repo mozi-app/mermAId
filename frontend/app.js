@@ -24,7 +24,6 @@ import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import { vim } from '@replit/codemirror-vim';
 import mermaid from 'mermaid';
-import panzoom from 'panzoom';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
 
 // Initialize mermaid
@@ -56,10 +55,92 @@ const STARTER_DIAGRAM = `sequenceDiagram
     Charlie-->>Alice: Likewise!
 `;
 
+// SVG viewBox-based pan/zoom (vector-clean, no rasterization)
+function createSvgPanZoom(svgEl) {
+    const vb = svgEl.viewBox.baseVal;
+    const orig = { x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+
+    // Make SVG fill its container; viewBox controls what's visible
+    svgEl.setAttribute('width', '100%');
+    svgEl.setAttribute('height', '100%');
+    svgEl.style.cursor = 'grab';
+
+    let isPanning = false;
+    let start = { x: 0, y: 0 };
+    let startVB = { x: 0, y: 0 };
+
+    const onWheel = (e) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
+        const rect = svgEl.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+        const newW = vb.width * factor;
+        const newH = vb.height * factor;
+        vb.x += (vb.width - newW) * mx;
+        vb.y += (vb.height - newH) * my;
+        vb.width = newW;
+        vb.height = newH;
+    };
+
+    const onMouseDown = (e) => {
+        if (e.button !== 0) return;
+        isPanning = true;
+        start = { x: e.clientX, y: e.clientY };
+        startVB = { x: vb.x, y: vb.y };
+        svgEl.style.cursor = 'grabbing';
+        e.preventDefault();
+    };
+
+    const onMouseMove = (e) => {
+        if (!isPanning) return;
+        const rect = svgEl.getBoundingClientRect();
+        vb.x = startVB.x - (e.clientX - start.x) * (vb.width / rect.width);
+        vb.y = startVB.y - (e.clientY - start.y) * (vb.height / rect.height);
+    };
+
+    const onMouseUp = () => {
+        if (!isPanning) return;
+        isPanning = false;
+        svgEl.style.cursor = 'grab';
+    };
+
+    svgEl.addEventListener('wheel', onWheel, { passive: false });
+    svgEl.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    return {
+        getTransform() {
+            return { x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+        },
+        setTransform(t) {
+            vb.x = t.x;
+            vb.y = t.y;
+            vb.width = t.width;
+            vb.height = t.height;
+        },
+        resetZoom() {
+            vb.x = orig.x;
+            vb.y = orig.y;
+            vb.width = orig.width;
+            vb.height = orig.height;
+        },
+        dispose() {
+            svgEl.removeEventListener('wheel', onWheel);
+            svgEl.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        },
+    };
+}
+
 // State
-let panzoomInstance = null;
+let panZoomInstance = null;
 let debounceTimer = null;
+let syncTimer = null;
 let renderCounter = 0;
+let isExternalUpdate = false;
 
 // DOM elements
 const container = document.getElementById('container');
@@ -120,6 +201,9 @@ const editor = new EditorView({
             EditorView.updateListener.of((update) => {
                 if (update.docChanged) {
                     scheduleRender();
+                    if (!isExternalUpdate) {
+                        scheduleSyncToServer();
+                    }
                 }
             }),
         ],
@@ -152,29 +236,24 @@ async function renderDiagram(code) {
         // Discard if a newer render has started
         if (thisRender !== renderCounter) return;
 
-        // Save current transform before replacing
+        // Save current viewBox before replacing
         let savedTransform = null;
-        if (panzoomInstance) {
-            savedTransform = panzoomInstance.getTransform();
-            panzoomInstance.dispose();
-            panzoomInstance = null;
+        if (panZoomInstance) {
+            savedTransform = panZoomInstance.getTransform();
+            panZoomInstance.dispose();
+            panZoomInstance = null;
         }
 
         previewEl.innerHTML = svg;
 
-        // Initialize panzoom on the new SVG
+        // Initialize viewBox-based pan/zoom on the new SVG
         const svgEl = previewEl.querySelector('svg');
         if (svgEl) {
-            panzoomInstance = panzoom(svgEl, {
-                maxZoom: 10,
-                minZoom: 0.1,
-                smoothScroll: false,
-            });
+            panZoomInstance = createSvgPanZoom(svgEl);
 
-            // Restore transform if we had one
+            // Restore viewBox if we had one
             if (savedTransform) {
-                panzoomInstance.moveTo(savedTransform.x, savedTransform.y);
-                panzoomInstance.zoomAbs(savedTransform.x, savedTransform.y, savedTransform.scale);
+                panZoomInstance.setTransform(savedTransform);
             }
         }
     } catch (e) {
@@ -234,9 +313,8 @@ document.addEventListener('mouseup', () => {
 
 // Reset Zoom
 resetZoomBtn.addEventListener('click', () => {
-    if (panzoomInstance) {
-        panzoomInstance.moveTo(0, 0);
-        panzoomInstance.zoomAbs(0, 0, 1);
+    if (panZoomInstance) {
+        panZoomInstance.resetZoom();
     }
 });
 
@@ -259,21 +337,31 @@ downloadMenu.addEventListener('click', (e) => {
     e.stopPropagation();
 });
 
-function downloadFile(filename, url) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+function downloadViaServer(filename, contentType, data, encoding) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/api/download';
+    form.style.display = 'none';
+
+    const fields = { filename, content_type: contentType, data, encoding: encoding || '' };
+    for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
 
 downloadSvgBtn.addEventListener('click', () => {
     const svgEl = previewEl.querySelector('svg');
     if (!svgEl) return;
     const svgData = new XMLSerializer().serializeToString(svgEl);
-    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    downloadFile('diagram.svg', URL.createObjectURL(blob));
+    downloadViaServer('diagram.svg', 'image/svg+xml', svgData);
     downloadMenu.classList.remove('open');
 });
 
@@ -281,8 +369,7 @@ downloadPngBtn.addEventListener('click', () => {
     const svgEl = previewEl.querySelector('svg');
     if (!svgEl) return;
     const svgData = new XMLSerializer().serializeToString(svgEl);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
+    const svgDataURI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
     const img = new Image();
     img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -294,14 +381,59 @@ downloadPngBtn.addEventListener('click', () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, img.width, img.height);
         ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        canvas.toBlob((blob) => {
-            downloadFile('diagram.png', URL.createObjectURL(blob));
-        }, 'image/png');
+        const pngDataUrl = canvas.toDataURL('image/png');
+        const base64 = pngDataUrl.split(',')[1];
+        downloadViaServer('diagram.png', 'image/png', base64, 'base64');
     };
-    img.src = url;
+    img.src = svgDataURI;
     downloadMenu.classList.remove('open');
 });
 
-// Initial render
+// ── Server sync ─────────────────────────────────────────────────────────────
+
+function scheduleSyncToServer() {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+        const content = editor.state.doc.toString();
+        fetch('/api/diagram', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, source: 'browser' }),
+        }).catch(() => {
+            // Server unavailable — ignore
+        });
+    }, 300);
+}
+
+// Connect to SSE for live updates from external sources (e.g. MCP)
+function connectSSE() {
+    const evtSource = new EventSource('/api/events');
+
+    evtSource.onmessage = (e) => {
+        try {
+            const event = JSON.parse(e.data);
+            if (event.source === 'browser') return; // Ignore our own changes
+
+            const currentContent = editor.state.doc.toString();
+            if (event.content === currentContent) return; // Already in sync
+
+            isExternalUpdate = true;
+            editor.dispatch({
+                changes: { from: 0, to: editor.state.doc.length, insert: event.content },
+            });
+            isExternalUpdate = false;
+        } catch {
+            // Ignore malformed events
+        }
+    };
+
+    evtSource.onerror = () => {
+        // EventSource auto-reconnects
+    };
+}
+
+connectSSE();
+
+// Initial render and sync to server
 renderDiagram(STARTER_DIAGRAM);
+scheduleSyncToServer();

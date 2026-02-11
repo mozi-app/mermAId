@@ -9,7 +9,20 @@
       "Bash(go mod init:*)",
       "Bash(curl:*)",
       "Bash(/usr/libexec/PlistBuddy:*)",
-      "Bash(codesign:*)"
+      "Bash(codesign:*)",
+      "WebFetch(domain:docs.ollama.com)",
+      "WebFetch(domain:ollama.readthedocs.io)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:ollama.com)",
+      "Bash(git diff:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(pkill:*)",
+      "Bash(go get:*)",
+      "Bash(go doc:*)",
+      "Bash(/Users/kmatthias/dev/mermaid/bin/mermaid-cli status:*)",
+      "Bash(~/bin/mermaid-cli get:*)",
+      "Bash(~/bin/mermaid-cli status:*)",
+      "Bash(~/bin/mermaid-cli set:*)"
     ]
   }
 }

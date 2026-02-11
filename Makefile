@@ -1,4 +1,4 @@
-.PHONY: all build clean dev macapp stop help
+.PHONY: all build clean dev macapp stop test help
 
 STATE_DIR := $(shell python3 -c "import tempfile,os;print(os.path.join(os.path.expanduser('~/Library/Caches'),'mermaid-editor'))" 2>/dev/null || echo /tmp/mermaid-editor)
 
@@ -62,6 +62,9 @@ macapp: build #: Build a macOS .app bundle
 		"$(APP_BUNDLE)/Contents/Info.plist"
 	codesign --force --deep --sign - "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"
+
+test: #: Run tests
+	go test -v -count=1 -timeout 30s ./...
 
 stop: #: Stop the running instance
 	@if [ -f "$(STATE_DIR)/pid" ]; then \

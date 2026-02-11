@@ -32,6 +32,10 @@ func goOpenBrowser() {
 }
 
 func main() {
+	if isMCPMode() {
+		runMCP()
+		return
+	}
 	if !startServer() {
 		return
 	}

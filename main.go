@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/base64"
 	"fmt"
 	"io/fs"
 	"log"
@@ -21,6 +22,7 @@ var staticFiles embed.FS
 
 var server *http.Server
 var serverURL string
+var diagram *DiagramState
 
 func stateDir() string {
 	dir, err := os.UserCacheDir()
@@ -96,7 +98,13 @@ func startServer() bool {
 	serverURL = url
 	writeState(port)
 
+	diagram = NewDiagramState("")
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/diagram", diagram.handleGetDiagram)
+	mux.HandleFunc("PUT /api/diagram", diagram.handleSetDiagram)
+	mux.HandleFunc("GET /api/events", diagram.handleDiagramSSE)
+	mux.HandleFunc("POST /api/download", handleDownload)
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
 	server = &http.Server{Handler: mux}
@@ -110,6 +118,38 @@ func startServer() bool {
 	}()
 
 	return true
+}
+
+func handleDownload(w http.ResponseWriter, r *http.Request) {
+	filename := r.FormValue("filename")
+	contentType := r.FormValue("content_type")
+	data := r.FormValue("data")
+	encoding := r.FormValue("encoding")
+
+	if filename == "" || data == "" {
+		http.Error(w, "missing filename or data", http.StatusBadRequest)
+		return
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	var body []byte
+	if encoding == "base64" {
+		var err error
+		body, err = base64.StdEncoding.DecodeString(data)
+		if err != nil {
+			http.Error(w, "invalid base64 data", http.StatusBadRequest)
+			return
+		}
+	} else {
+		body = []byte(data)
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	w.Write(body)
 }
 
 func shutdown() {
