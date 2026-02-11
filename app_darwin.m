@@ -4,7 +4,7 @@
 extern void goShutdown(void);
 extern void goOpenBrowser(void);
 
-@interface MermaidAppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate>
+@interface MermaidAppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate, WKDownloadDelegate>
 @property (strong) NSWindow *window;
 @property (strong) WKWebView *webView;
 @property (strong) NSString *serverURL;
@@ -76,6 +76,56 @@ extern void goOpenBrowser(void);
 		return;
 	}
 	decisionHandler(WKNavigationActionPolicyAllow);
+}
+
+// Detect Content-Disposition: attachment responses and trigger a download
+- (void)webView:(WKWebView *)webView
+	decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse
+	                  decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler {
+	if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
+		NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)navigationResponse.response;
+		NSString *disposition = httpResponse.allHeaderFields[@"Content-Disposition"];
+		if (disposition && [disposition containsString:@"attachment"]) {
+			decisionHandler(WKNavigationResponsePolicyDownload);
+			return;
+		}
+	}
+	decisionHandler(WKNavigationResponsePolicyAllow);
+}
+
+- (void)webView:(WKWebView *)webView
+	navigationResponse:(WKNavigationResponse *)navigationResponse
+	didBecomeDownload:(WKDownload *)download {
+	download.delegate = self;
+}
+
+- (void)webView:(WKWebView *)webView
+	navigationAction:(WKNavigationAction *)navigationAction
+	didBecomeDownload:(WKDownload *)download {
+	download.delegate = self;
+}
+
+// WKDownloadDelegate — present a native save dialog
+- (void)download:(WKDownload *)download
+	decideDestinationUsingResponse:(NSURLResponse *)response
+	suggestedFilename:(NSString *)suggestedFilename
+	completionHandler:(void (^)(NSURL * _Nullable))completionHandler {
+	NSSavePanel *panel = [NSSavePanel savePanel];
+	panel.nameFieldStringValue = suggestedFilename;
+	[panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
+		if (result == NSModalResponseOK) {
+			// Remove any existing file so WKDownload can write to the path
+			[[NSFileManager defaultManager] removeItemAtURL:panel.URL error:nil];
+			completionHandler(panel.URL);
+		} else {
+			completionHandler(nil);
+		}
+	}];
+}
+
+- (void)download:(WKDownload *)download didFailWithError:(NSError *)error
+	resumeData:(NSData * _Nullable)resumeData {
+	NSLog(@"Download failed: %@", error.localizedDescription);
 }
 @end
 
