@@ -1,0 +1,207 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# mermaid-cli — CLI for the Mermaid diagram editor
+#
+# This tool talks to a running mermaid-editor instance via its HTTP API.
+# It discovers the editor automatically via its state files.
+#
+# USAGE:
+#   mermaid-cli get                  — Print the current diagram text to stdout
+#   mermaid-cli set <file>           — Set the diagram from a file (use - for stdin)
+#   mermaid-cli set --text "graph…"  — Set the diagram from a string argument
+#   mermaid-cli status               — Check if the editor is running
+#   mermaid-cli help                 — Show this help
+#
+# EXAMPLES:
+#   # Read the current diagram
+#   mermaid-cli get
+#
+#   # Replace the diagram with text from a file
+#   mermaid-cli set diagram.mmd
+#
+#   # Replace the diagram with inline text
+#   mermaid-cli set --text "graph TD; A-->B; B-->C"
+#
+#   # Pipe a diagram in
+#   echo "sequenceDiagram\n  Alice->>Bob: Hi" | mermaid-cli set -
+#
+#   # Check if the editor is running
+#   mermaid-cli status
+#
+# EXIT CODES:
+#   0 — Success
+#   1 — Error (editor not running, bad input, etc.)
+
+require "net/http"
+require "json"
+require "uri"
+
+module MermaidCLI
+  # Discover the running editor's base URL from its state files.
+  def self.cache_dir
+    base = case RUBY_PLATFORM
+           when /darwin/
+             File.join(Dir.home, "Library", "Caches")
+           when /linux/
+             ENV.fetch("XDG_CACHE_HOME", File.join(Dir.home, ".cache"))
+           else
+             Dir.tmpdir
+           end
+    File.join(base, "mermaid-editor")
+  end
+
+  def self.discover_url
+    pid_path  = File.join(cache_dir, "pid")
+    port_path = File.join(cache_dir, "port")
+
+    unless File.exist?(pid_path) && File.exist?(port_path)
+      return nil
+    end
+
+    pid  = File.read(pid_path).strip.to_i
+    port = File.read(port_path).strip
+
+    # Check if the process is actually running
+    begin
+      Process.kill(0, pid)
+    rescue Errno::ESRCH, Errno::EPERM
+      return nil
+    end
+
+    "http://127.0.0.1:#{port}"
+  end
+
+  def self.require_url!
+    url = discover_url
+    if url.nil?
+      $stderr.puts "Error: mermaid-editor is not running."
+      $stderr.puts "Start it with: mermaid-editor"
+      exit 1
+    end
+    url
+  end
+
+  def self.get_diagram
+    url = require_url!
+    uri = URI("#{url}/api/diagram")
+    response = Net::HTTP.get_response(uri)
+
+    unless response.is_a?(Net::HTTPSuccess)
+      $stderr.puts "Error: GET /api/diagram returned #{response.code}"
+      exit 1
+    end
+
+    data = JSON.parse(response.body)
+    puts data["content"]
+  end
+
+  def self.set_diagram(content)
+    url = require_url!
+    uri = URI("#{url}/api/diagram")
+
+    req = Net::HTTP::Put.new(uri, "Content-Type" => "application/json")
+    req.body = JSON.generate({ content: content, source: "cli" })
+
+    response = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+    unless response.is_a?(Net::HTTPSuccess)
+      $stderr.puts "Error: PUT /api/diagram returned #{response.code}"
+      exit 1
+    end
+
+    data = JSON.parse(response.body)
+    $stderr.puts "Diagram updated (version #{data["version"]})"
+  end
+
+  def self.status
+    url = discover_url
+    if url.nil?
+      puts "Not running"
+      exit 1
+    end
+
+    # Verify it responds
+    begin
+      uri = URI("#{url}/api/diagram")
+      response = Net::HTTP.get_response(uri)
+      if response.is_a?(Net::HTTPSuccess)
+        data = JSON.parse(response.body)
+        puts "Running at #{url} (version #{data["version"]})"
+      else
+        puts "Process found but not responding (#{response.code})"
+        exit 1
+      end
+    rescue StandardError => e
+      puts "Process found but not reachable: #{e.message}"
+      exit 1
+    end
+  end
+
+  HELP = <<~HELP
+    mermaid-cli — CLI for the Mermaid diagram editor
+
+    USAGE:
+      mermaid-cli get                  Print the current diagram to stdout
+      mermaid-cli set <file>           Set the diagram from a file (use - for stdin)
+      mermaid-cli set --text "graph…"  Set the diagram from a string
+      mermaid-cli status               Check if the editor is running
+      mermaid-cli help                 Show this help
+
+    The editor must be running (start it with `mermaid-editor` or
+    `mermaid-editor --mcp` for MCP mode).
+
+    EXIT CODES:
+      0  Success
+      1  Error (editor not running, bad input, etc.)
+  HELP
+
+  def self.run(args)
+    command = args.shift
+
+    case command
+    when "get"
+      get_diagram
+
+    when "set"
+      if args.first == "--text"
+        args.shift
+        content = args.join(" ")
+        if content.empty?
+          $stderr.puts "Error: --text requires a string argument"
+          exit 1
+        end
+        set_diagram(content)
+      elsif args.first == "-" || args.empty?
+        if $stdin.tty? && args.empty?
+          $stderr.puts "Error: provide a file, --text, or pipe input via stdin"
+          $stderr.puts "  mermaid-cli set <file>"
+          $stderr.puts "  mermaid-cli set --text \"graph TD; A-->B\""
+          $stderr.puts "  echo \"graph TD\" | mermaid-cli set -"
+          exit 1
+        end
+        set_diagram($stdin.read)
+      else
+        path = args.first
+        unless File.exist?(path)
+          $stderr.puts "Error: file not found: #{path}"
+          exit 1
+        end
+        set_diagram(File.read(path))
+      end
+
+    when "status"
+      status
+
+    when "help", "--help", "-h", nil
+      puts HELP
+
+    else
+      $stderr.puts "Unknown command: #{command}"
+      $stderr.puts "Run `mermaid-cli help` for usage."
+      exit 1
+    end
+  end
+end
+
+MermaidCLI.run(ARGV.dup)
