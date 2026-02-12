@@ -80,6 +80,7 @@ extern void goOpenBrowser(void);
 		                     NSWindowStyleMaskClosable)
 		            backing:NSBackingStoreBuffered
 		              defer:NO];
+	[self.aboutWindow setReleasedWhenClosed:NO];
 	[self.aboutWindow setTitle:@"About Mermaid Editor"];
 	[self.aboutWindow center];
 
