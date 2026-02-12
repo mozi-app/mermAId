@@ -111,6 +111,9 @@ function createSvgPanZoom(svgEl) {
     document.addEventListener('mouseup', onMouseUp);
 
     return {
+        getOriginal() {
+            return { ...orig };
+        },
         getTransform() {
             return { x: vb.x, y: vb.y, width: vb.width, height: vb.height };
         },
@@ -357,10 +360,25 @@ function downloadViaServer(filename, contentType, data, encoding) {
     document.body.removeChild(form);
 }
 
+// Clone SVG with its original full-diagram viewBox and explicit pixel dimensions
+// so exports capture the entire diagram regardless of current pan/zoom state.
+function cloneSvgForExport(svgEl) {
+    const clone = svgEl.cloneNode(true);
+    if (panZoomInstance) {
+        const orig = panZoomInstance.getOriginal();
+        clone.setAttribute('viewBox', `${orig.x} ${orig.y} ${orig.width} ${orig.height}`);
+        clone.setAttribute('width', orig.width);
+        clone.setAttribute('height', orig.height);
+    }
+    clone.style.cursor = '';
+    return clone;
+}
+
 downloadSvgBtn.addEventListener('click', () => {
     const svgEl = previewEl.querySelector('svg');
     if (!svgEl) return;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const clone = cloneSvgForExport(svgEl);
+    const svgData = new XMLSerializer().serializeToString(clone);
     downloadViaServer('diagram.svg', 'image/svg+xml', svgData);
     downloadMenu.classList.remove('open');
 });
@@ -368,7 +386,8 @@ downloadSvgBtn.addEventListener('click', () => {
 downloadPngBtn.addEventListener('click', () => {
     const svgEl = previewEl.querySelector('svg');
     if (!svgEl) return;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const clone = cloneSvgForExport(svgEl);
+    const svgData = new XMLSerializer().serializeToString(clone);
     const svgDataURI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
     const img = new Image();
     img.onload = () => {

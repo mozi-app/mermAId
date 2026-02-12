@@ -8,6 +8,7 @@ extern void goOpenBrowser(void);
 @property (strong) NSWindow *window;
 @property (strong) WKWebView *webView;
 @property (strong) NSString *serverURL;
+@property (strong) NSWindow *aboutWindow;
 @end
 
 @implementation MermaidAppDelegate
@@ -62,6 +63,65 @@ extern void goOpenBrowser(void);
 
 - (void)openInBrowser:(id)sender {
 	goOpenBrowser();
+}
+
+- (void)showAbout:(id)sender {
+	if (self.aboutWindow) {
+		[self.aboutWindow makeKeyAndOrderFront:nil];
+		return;
+	}
+
+	CGFloat width = 480;
+	CGFloat height = 480;
+	NSRect frame = NSMakeRect(0, 0, width, height);
+	self.aboutWindow = [[NSWindow alloc]
+		initWithContentRect:frame
+		          styleMask:(NSWindowStyleMaskTitled |
+		                     NSWindowStyleMaskClosable)
+		            backing:NSBackingStoreBuffered
+		              defer:NO];
+	[self.aboutWindow setTitle:@"About Mermaid Editor"];
+	[self.aboutWindow center];
+
+	// Load image from embedded static server
+	NSURL *imageURL = [NSURL URLWithString:
+		[NSString stringWithFormat:@"%@/about.png", self.serverURL]];
+	NSImage *image = [[NSImage alloc] initWithContentsOfURL:imageURL];
+
+	NSView *contentView = [[NSView alloc] initWithFrame:frame];
+
+	// Image view filling the window
+	NSImageView *imageView = [[NSImageView alloc] initWithFrame:frame];
+	imageView.image = image;
+	imageView.imageScaling = NSImageScaleProportionallyUpOrDown;
+	imageView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+	[contentView addSubview:imageView];
+
+	// Copyright label overlaid at the bottom
+	NSTextField *label = [[NSTextField alloc] initWithFrame:
+		NSMakeRect(0, 20, width, 30)];
+	label.stringValue = @"Copyright \u00A9 Mozi 2026";
+	label.font = [NSFont boldSystemFontOfSize:16];
+	label.textColor = [NSColor whiteColor];
+	label.backgroundColor = [NSColor clearColor];
+	label.bordered = NO;
+	label.editable = NO;
+	label.selectable = NO;
+	label.alignment = NSTextAlignmentCenter;
+	label.drawsBackground = NO;
+
+	// Add a shadow for readability against the painting
+	NSShadow *shadow = [[NSShadow alloc] init];
+	shadow.shadowColor = [NSColor blackColor];
+	shadow.shadowOffset = NSMakeSize(1, -1);
+	shadow.shadowBlurRadius = 3;
+	label.shadow = shadow;
+
+	label.autoresizingMask = NSViewWidthSizable | NSViewMaxYMargin;
+	[contentView addSubview:label];
+
+	[self.aboutWindow setContentView:contentView];
+	[self.aboutWindow makeKeyAndOrderFront:nil];
 }
 
 // Open external links in system browser
@@ -148,6 +208,10 @@ void runApp(const char *url) {
 		[menuBar addItem:appMenuItem];
 
 		NSMenu *appMenu = [[NSMenu alloc] initWithTitle:@"Mermaid Editor"];
+		[appMenu addItemWithTitle:@"About Mermaid Editor"
+		                   action:@selector(showAbout:)
+		            keyEquivalent:@""];
+		[appMenu addItem:[NSMenuItem separatorItem]];
 		[appMenu addItemWithTitle:@"Hide Mermaid Editor"
 		                   action:@selector(hide:)
 		            keyEquivalent:@"h"];
