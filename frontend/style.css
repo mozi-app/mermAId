@@ -209,6 +209,7 @@ html, body {
 
 #preview svg {
     transform-origin: 0 0;
+    max-width: none !important;
 }
 
 /* Collapsed state */

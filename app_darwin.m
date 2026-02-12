@@ -148,6 +148,17 @@ void runApp(const char *url) {
 		[menuBar addItem:appMenuItem];
 
 		NSMenu *appMenu = [[NSMenu alloc] initWithTitle:@"Mermaid Editor"];
+		[appMenu addItemWithTitle:@"Hide Mermaid Editor"
+		                   action:@selector(hide:)
+		            keyEquivalent:@"h"];
+		NSMenuItem *hideOthersItem = [appMenu addItemWithTitle:@"Hide Others"
+		                   action:@selector(hideOtherApplications:)
+		            keyEquivalent:@"h"];
+		[hideOthersItem setKeyEquivalentModifierMask:(NSEventModifierFlagCommand | NSEventModifierFlagOption)];
+		[appMenu addItemWithTitle:@"Show All"
+		                   action:@selector(unhideAllApplications:)
+		            keyEquivalent:@""];
+		[appMenu addItem:[NSMenuItem separatorItem]];
 		[appMenu addItemWithTitle:@"Quit Mermaid Editor"
 		                   action:@selector(terminate:)
 		            keyEquivalent:@"q"];
