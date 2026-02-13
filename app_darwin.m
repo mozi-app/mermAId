@@ -101,7 +101,7 @@ extern void goOpenBrowser(void);
 	// Copyright label overlaid at the bottom
 	NSTextField *label = [[NSTextField alloc] initWithFrame:
 		NSMakeRect(0, 20, width, 30)];
-	label.stringValue = @"Copyright \u00A9 Mozi 2026";
+	label.stringValue = @"Copyright \u00A9 Quantum Hug, Inc. 2026";
 	label.font = [NSFont boldSystemFontOfSize:16];
 	label.textColor = [NSColor whiteColor];
 	label.backgroundColor = [NSColor clearColor];
