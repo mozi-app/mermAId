@@ -22,9 +22,14 @@ import {
 } from '@codemirror/language';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
-import { vim } from '@replit/codemirror-vim';
+import { vim, Vim, getCM } from '@replit/codemirror-vim';
 import mermaid from 'mermaid';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
+
+// Register :q to quit the app
+Vim.defineEx('quit', 'q', () => {
+    fetch('/api/quit', { method: 'POST' });
+});
 
 // Initialize mermaid
 mermaid.initialize({
@@ -34,26 +39,7 @@ mermaid.initialize({
     sequence: { showSequenceNumbers: false },
 });
 
-const STARTER_DIAGRAM = `sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-
-    Alice->>Bob: Hello Bob, how are you?
-    Bob-->>Alice: I'm good thanks!
-    Alice->>Bob: Great to hear!
-    Bob->>Charlie: Hey Charlie!
-    Charlie-->>Bob: Hi Bob!
-
-    loop Health Check
-        Bob->>Charlie: Are you still there?
-        Charlie-->>Bob: Yes!
-    end
-
-    Note over Alice,Bob: A typical conversation
-    Alice->>Charlie: Nice to meet you!
-    Charlie-->>Alice: Likewise!
-`;
+const STARTER_DIAGRAM = '';
 
 // SVG viewBox-based pan/zoom (vector-clean, no rasterization)
 function createSvgPanZoom(svgEl) {
@@ -452,6 +438,14 @@ function connectSSE() {
 }
 
 connectSSE();
+
+// Auto-enter insert mode on paste when in normal mode
+editor.dom.addEventListener('paste', () => {
+    const cm = getCM(editor);
+    if (cm && cm.state.vim && !cm.state.vim.insertMode) {
+        Vim.handleKey(editor, 'i');
+    }
+}, true);
 
 // Initial render and sync to server
 renderDiagram(STARTER_DIAGRAM);

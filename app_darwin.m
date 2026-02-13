@@ -190,6 +190,12 @@ extern void goOpenBrowser(void);
 }
 @end
 
+void terminateApp(void) {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[NSApp terminate:nil];
+	});
+}
+
 void runApp(const char *url) {
 	@autoreleasepool {
 		// Disable the macOS press-and-hold accent picker so that held keys

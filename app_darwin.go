@@ -9,10 +9,12 @@ package main
 #include <stdlib.h>
 
 void runApp(const char *url);
+void terminateApp(void);
 */
 import "C"
 
 import (
+	"net/http"
 	"runtime"
 	"unsafe"
 )
@@ -29,6 +31,11 @@ func goShutdown() {
 //export goOpenBrowser
 func goOpenBrowser() {
 	go openBrowser(serverURL)
+}
+
+func handleQuit(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+	C.terminateApp()
 }
 
 func main() {

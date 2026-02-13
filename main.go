@@ -105,6 +105,7 @@ func startServer() bool {
 	mux.HandleFunc("PUT /api/diagram", diagram.handleSetDiagram)
 	mux.HandleFunc("GET /api/events", diagram.handleDiagramSSE)
 	mux.HandleFunc("POST /api/download", handleDownload)
+	mux.HandleFunc("POST /api/quit", handleQuit)
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
 	server = &http.Server{Handler: mux}
