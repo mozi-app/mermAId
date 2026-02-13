@@ -178,6 +178,17 @@ const editor = new EditorView({
             highlightActiveLine(),
             highlightSelectionMatches(),
             keymap.of([
+                {
+                    key: 'Tab',
+                    run: (view) => {
+                        const cm = getCM(view);
+                        if (cm && cm.state.vim && cm.state.vim.insertMode) {
+                            view.dispatch(view.state.replaceSelection('\t'));
+                            return true;
+                        }
+                        return false;
+                    },
+                },
                 ...defaultKeymap,
                 ...searchKeymap,
                 ...historyKeymap,

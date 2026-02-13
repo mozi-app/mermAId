@@ -63,6 +63,9 @@ macapp: build #: Build a macOS .app bundle
 	codesign --force --deep --sign - "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"
 
+macinstall: macapp #: Install the macOS .app bundle
+	cp -pr "$(APP_BUNDLE)" /Applications
+
 test: #: Run tests
 	go test -v -count=1 -timeout 30s ./...
 
