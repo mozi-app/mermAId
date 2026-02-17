@@ -455,14 +455,9 @@ downloadPngBtn.addEventListener('click', () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, img.width, img.height);
         ctx.drawImage(img, 0, 0);
-        canvas.toBlob(blob => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'diagram.png';
-            a.click();
-            URL.revokeObjectURL(url);
-        }, 'image/png');
+        const pngDataUrl = canvas.toDataURL('image/png');
+        const base64 = pngDataUrl.split(',')[1];
+        downloadViaServer('diagram.png', 'image/png', base64, 'base64');
     };
     img.src = svgDataURI;
     downloadMenu.classList.remove('open');
