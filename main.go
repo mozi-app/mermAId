@@ -152,11 +152,6 @@ func handleSetPreferences(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 50<<20) // 50 MB
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "request too large", http.StatusRequestEntityTooLarge)
-		return
-	}
 	filename := r.FormValue("filename")
 	contentType := r.FormValue("content_type")
 	data := r.FormValue("data")
