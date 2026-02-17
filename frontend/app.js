@@ -10,7 +10,7 @@ import {
     crosshairCursor,
     highlightActiveLine,
 } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Compartment } from '@codemirror/state';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import {
     foldGutter,
@@ -23,6 +23,7 @@ import {
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import { vim, Vim, getCM } from '@replit/codemirror-vim';
+import { indentWithTab } from '@codemirror/commands';
 import mermaid from 'mermaid';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
 
@@ -30,6 +31,43 @@ import { mermaidLanguage, mermaidLinter } from './editor.js';
 Vim.defineEx('quit', 'q', () => {
     fetch('/api/quit', { method: 'POST' });
 });
+
+// Vim mode preference
+const vimCompartment = new Compartment();
+const vimKeyCompartment = new Compartment();
+
+function vimExtensions() {
+    return [vim()];
+}
+
+function vimTabKeymap() {
+    return keymap.of([{
+        key: 'Tab',
+        run: (view) => {
+            const cm = getCM(view);
+            if (cm && cm.state.vim && cm.state.vim.insertMode) {
+                view.dispatch(view.state.replaceSelection('\t'));
+                return true;
+            }
+            return false;
+        },
+    }]);
+}
+
+function defaultTabKeymap() {
+    return keymap.of([indentWithTab]);
+}
+
+function savePreference(key, value) {
+    fetch('/api/preferences').then(r => r.json()).then(prefs => {
+        prefs[key] = value;
+        fetch('/api/preferences', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(prefs),
+        });
+    }).catch(() => {});
+}
 
 // Initialize mermaid
 mermaid.initialize({
@@ -136,12 +174,15 @@ const container = document.getElementById('container');
 const editorEl = document.getElementById('editor');
 const previewEl = document.getElementById('preview');
 const collapseBtn = document.getElementById('collapse-btn');
-const floatingIcon = document.getElementById('floating-icon');
+const expandBtn = document.getElementById('expand-btn');
 const resetZoomBtn = document.getElementById('reset-zoom-btn');
 
 // Light theme for CodeMirror
 const lightTheme = EditorView.theme({
-    '&': { backgroundColor: '#fffdf7' },
+    '&': {
+        backgroundColor: '#fffdf7',
+        fontFamily: '"Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    },
     '.cm-content': { color: '#2d3436', caretColor: '#e17055' },
     '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#e17055' },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
@@ -156,12 +197,12 @@ const lightTheme = EditorView.theme({
     '.cm-activeLine': { backgroundColor: 'rgba(253, 203, 110, 0.15)' },
 });
 
-// Create CodeMirror editor
+// Create CodeMirror editor (starts with vim enabled; adjusted after loading prefs)
 const editor = new EditorView({
     state: EditorState.create({
         doc: STARTER_DIAGRAM,
         extensions: [
-            vim(),
+            vimCompartment.of(vimExtensions()),
             lineNumbers(),
             highlightActiveLineGutter(),
             highlightSpecialChars(),
@@ -177,18 +218,8 @@ const editor = new EditorView({
             crosshairCursor(),
             highlightActiveLine(),
             highlightSelectionMatches(),
+            vimKeyCompartment.of(vimTabKeymap()),
             keymap.of([
-                {
-                    key: 'Tab',
-                    run: (view) => {
-                        const cm = getCM(view);
-                        if (cm && cm.state.vim && cm.state.vim.insertMode) {
-                            view.dispatch(view.state.replaceSelection('\t'));
-                            return true;
-                        }
-                        return false;
-                    },
-                },
                 ...defaultKeymap,
                 ...searchKeymap,
                 ...historyKeymap,
@@ -264,12 +295,39 @@ async function renderDiagram(code) {
 // Collapse / Expand
 collapseBtn.addEventListener('click', () => {
     container.classList.add('collapsed');
-    floatingIcon.classList.remove('hidden');
+    expandBtn.classList.remove('hidden');
 });
 
-floatingIcon.addEventListener('click', () => {
+expandBtn.addEventListener('click', () => {
     container.classList.remove('collapsed');
-    floatingIcon.classList.add('hidden');
+    expandBtn.classList.add('hidden');
+});
+
+// Vim toggle
+const vimToggle = document.getElementById('vim-toggle');
+
+function setVimMode(enabled) {
+    vimToggle.checked = enabled;
+    editor.dispatch({
+        effects: [
+            vimCompartment.reconfigure(enabled ? vimExtensions() : []),
+            vimKeyCompartment.reconfigure(enabled ? vimTabKeymap() : defaultTabKeymap()),
+        ],
+    });
+}
+
+// Load saved preference (default: vim on)
+fetch('/api/preferences').then(r => r.json()).then(prefs => {
+    if (prefs.vimMode === false) {
+        setVimMode(false);
+    }
+}).catch(() => {});
+
+vimToggle.addEventListener('change', () => {
+    const enabled = vimToggle.checked;
+    savePreference('vimMode', enabled);
+    setVimMode(enabled);
+    editor.focus();
 });
 
 // After transition ends, tell CodeMirror to recalculate
@@ -397,9 +455,14 @@ downloadPngBtn.addEventListener('click', () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, img.width, img.height);
         ctx.drawImage(img, 0, 0);
-        const pngDataUrl = canvas.toDataURL('image/png');
-        const base64 = pngDataUrl.split(',')[1];
-        downloadViaServer('diagram.png', 'image/png', base64, 'base64');
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.png';
+            a.click();
+            URL.revokeObjectURL(url);
+        }, 'image/png');
     };
     img.src = svgDataURI;
     downloadMenu.classList.remove('open');
@@ -450,8 +513,9 @@ function connectSSE() {
 
 connectSSE();
 
-// Auto-enter insert mode on paste when in normal mode
+// Auto-enter insert mode on paste when in vim normal mode
 editor.dom.addEventListener('paste', () => {
+    if (!vimToggle.checked) return;
     const cm = getCM(editor);
     if (cm && cm.state.vim && !cm.state.vim.insertMode) {
         Vim.handleKey(editor, 'i');

@@ -12,6 +12,11 @@
             <div id="editor-header">
                 <span>Editor</span>
                 <div id="editor-header-buttons">
+                    <label class="vim-toggle" title="Toggle Vim keybindings">
+                        <span class="vim-toggle-label">vim</span>
+                        <input type="checkbox" id="vim-toggle" checked>
+                        <span class="vim-toggle-slider"></span>
+                    </label>
                     <button id="collapse-btn" title="Collapse editor">&#x25C0;</button>
                 </div>
             </div>
@@ -20,7 +25,10 @@
         <div id="divider"></div>
         <div id="preview-pane">
             <div id="preview-header">
-                <span>Preview</span>
+                <div id="preview-header-left">
+                    <button id="expand-btn" class="hidden" title="Restore editor">&#x25B6;</button>
+                    <span>Preview</span>
+                </div>
                 <div id="preview-header-buttons">
                     <button id="reset-zoom-btn" title="Reset zoom">Reset Zoom</button>
                     <div class="download-wrapper">
@@ -35,7 +43,6 @@
             <div id="preview"></div>
         </div>
     </div>
-    <button id="floating-icon" class="hidden" title="Restore editor">&#x270E;</button>
     <script src="/bundle.js"></script>
 </body>
 </html>

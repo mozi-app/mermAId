@@ -44,7 +44,7 @@ html, body {
 
 #editor-header-buttons {
     display: flex;
-    gap: 6px;
+    gap: 12px;
     align-items: center;
 }
 
@@ -62,6 +62,55 @@ html, body {
 #editor-header button:hover {
     background: #ffeaa7;
     color: #d63031;
+}
+
+/* Vim toggle switch */
+.vim-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.vim-toggle-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #e17055;
+    text-transform: lowercase;
+}
+
+.vim-toggle input {
+    display: none;
+}
+
+.vim-toggle-slider {
+    position: relative;
+    width: 28px;
+    height: 16px;
+    background: #f0d9a0;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.vim-toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.vim-toggle input:checked + .vim-toggle-slider {
+    background: #e17055;
+}
+
+.vim-toggle input:checked + .vim-toggle-slider::after {
+    transform: translateX(12px);
 }
 
 #editor {
@@ -221,34 +270,31 @@ html, body {
     width: 0;
 }
 
-/* Floating restore icon */
-#floating-icon {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 1000;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #fdcb6e;
-    color: #d63031;
-    border: 2px solid #f0d9a0;
-    font-size: 20px;
+/* Expand editor button in preview header */
+#expand-btn {
+    background: none;
+    border: 1px solid #f0d9a0;
+    color: #e17055;
     cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background 0.15s, color 0.15s;
+}
+
+#expand-btn.hidden {
+    display: none;
+}
+
+#expand-btn:hover {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+#preview-header-left {
     display: flex;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: background 0.15s, transform 0.15s;
-}
-
-#floating-icon:hover {
-    background: #ffeaa7;
-    transform: scale(1.1);
-}
-
-#floating-icon.hidden {
-    display: none;
+    gap: 12px;
 }
 
 /* CodeMirror light theme overrides */

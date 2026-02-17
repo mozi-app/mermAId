@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
@@ -32,8 +33,9 @@ func stateDir() string {
 	return filepath.Join(dir, "mermaid-editor")
 }
 
-func pidFile() string  { return filepath.Join(stateDir(), "pid") }
-func portFile() string { return filepath.Join(stateDir(), "port") }
+func pidFile() string   { return filepath.Join(stateDir(), "pid") }
+func portFile() string  { return filepath.Join(stateDir(), "port") }
+func prefsFile() string { return filepath.Join(stateDir(), "preferences.json") }
 
 // checkExisting returns the URL of a running instance, or "" if none.
 func checkExisting() string {
@@ -105,6 +107,8 @@ func startServer() bool {
 	mux.HandleFunc("PUT /api/diagram", diagram.handleSetDiagram)
 	mux.HandleFunc("GET /api/events", diagram.handleDiagramSSE)
 	mux.HandleFunc("POST /api/download", handleDownload)
+	mux.HandleFunc("GET /api/preferences", handleGetPreferences)
+	mux.HandleFunc("PUT /api/preferences", handleSetPreferences)
 	mux.HandleFunc("POST /api/quit", handleQuit)
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
@@ -119,6 +123,32 @@ func startServer() bool {
 	}()
 
 	return true
+}
+
+func handleGetPreferences(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile(prefsFile())
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("{}"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
+}
+
+func handleSetPreferences(w http.ResponseWriter, r *http.Request) {
+	var prefs map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&prefs); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	data, _ := json.Marshal(prefs)
+	os.MkdirAll(stateDir(), 0755)
+	if err := os.WriteFile(prefsFile(), data, 0644); err != nil {
+		http.Error(w, "failed to save preferences", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request) {
