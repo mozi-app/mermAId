@@ -455,13 +455,13 @@ downloadPngBtn.addEventListener('click', () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, img.width, img.height);
         ctx.drawImage(img, 0, 0);
-        canvas.toBlob(blob => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'diagram.png';
-            a.click();
-            URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+            const fd = new FormData();
+            fd.append('file', blob, 'diagram.png');
+            fetch('/api/download/stage', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(({ url }) => { window.location.href = url; })
+                .catch(err => console.error('PNG download failed:', err));
         }, 'image/png');
     };
     img.src = svgDataURI;

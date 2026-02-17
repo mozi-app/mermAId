@@ -22,7 +22,13 @@
       "Bash(/Users/kmatthias/dev/mermaid/bin/mermaid-cli status:*)",
       "Bash(~/bin/mermaid-cli get:*)",
       "Bash(~/bin/mermaid-cli status:*)",
-      "Bash(~/bin/mermaid-cli set:*)"
+      "Bash(~/bin/mermaid-cli set:*)",
+      "Bash(sips:*)",
+      "Bash(/tmp/mermaid_icon_padded.svg:*)",
+      "Bash(rsvg-convert:*)",
+      "Bash(iconutil:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
     ]
   }
 }
