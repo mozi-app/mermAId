@@ -2,7 +2,7 @@
 
 STATE_DIR := $(shell python3 -c "import tempfile,os;print(os.path.join(os.path.expanduser('~/Library/Caches'),'mermaid-editor'))" 2>/dev/null || echo /tmp/mermaid-editor)
 
-APP_NAME := Mermaid Editor
+APP_NAME := MermAId Editor
 APP_BUNDLE := $(APP_NAME).app
 APP_ID := com.local.mermaid-editor
 

@@ -1,4 +1,4 @@
-# Mermaid Editor
+# MermAId Editor
 
 A lightweight, local Mermaid diagram editor. It runs a small Go server on localhost that serves a split-pane UI with a CodeMirror text editor on the left and a live-rendered Mermaid diagram preview on the right.
 
@@ -59,7 +59,7 @@ The editor opens automatically in your default browser. If an instance is alread
 make macapp
 ```
 
-Creates `Mermaid Editor.app`, a self-contained macOS application that lives in the menu bar.
+Creates `MermAId Editor.app`, a self-contained macOS application that lives in the menu bar.
 
 ## AI Agent Integration (Claude Code, etc.)
 

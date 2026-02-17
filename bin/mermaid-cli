@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# mermaid-cli — CLI for the Mermaid diagram editor
+# mermaid-cli — CLI for MermAId Editor
 #
 # This tool talks to a running mermaid-editor instance via its HTTP API.
 # It discovers the editor automatically via its state files.
@@ -139,7 +139,7 @@ module MermaidCLI
   end
 
   HELP = <<~HELP
-    mermaid-cli — CLI for the Mermaid diagram editor
+    mermaid-cli — CLI for MermAId Editor
 
     USAGE:
       mermaid-cli get                  Print the current diagram to stdout

@@ -71,7 +71,7 @@ func runMCP() {
 
 	server = &http.Server{Handler: mux}
 
-	fmt.Fprintf(os.Stderr, "Mermaid editor running at %s\n", url)
+	fmt.Fprintf(os.Stderr, "MermAId Editor running at %s\n", url)
 
 	go func() {
 		if err := server.Serve(listener); err != http.ErrServerClosed {

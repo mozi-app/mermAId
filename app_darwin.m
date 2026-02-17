@@ -23,7 +23,7 @@ extern void goOpenBrowser(void);
 		                     NSWindowStyleMaskResizable)
 		            backing:NSBackingStoreBuffered
 		              defer:NO];
-	[self.window setTitle:@"Mermaid Editor"];
+	[self.window setTitle:@"MermAId Editor"];
 	if (![self.window setFrameAutosaveName:@"MermaidEditorMain"]) {
 		[self.window center];
 	}
@@ -81,7 +81,7 @@ extern void goOpenBrowser(void);
 		            backing:NSBackingStoreBuffered
 		              defer:NO];
 	[self.aboutWindow setReleasedWhenClosed:NO];
-	[self.aboutWindow setTitle:@"About Mermaid Editor"];
+	[self.aboutWindow setTitle:@"About MermAId Editor"];
 	[self.aboutWindow center];
 
 	// Load image from embedded static server
@@ -214,12 +214,12 @@ void runApp(const char *url) {
 		NSMenuItem *appMenuItem = [[NSMenuItem alloc] init];
 		[menuBar addItem:appMenuItem];
 
-		NSMenu *appMenu = [[NSMenu alloc] initWithTitle:@"Mermaid Editor"];
-		[appMenu addItemWithTitle:@"About Mermaid Editor"
+		NSMenu *appMenu = [[NSMenu alloc] initWithTitle:@"MermAId Editor"];
+		[appMenu addItemWithTitle:@"About MermAId Editor"
 		                   action:@selector(showAbout:)
 		            keyEquivalent:@""];
 		[appMenu addItem:[NSMenuItem separatorItem]];
-		[appMenu addItemWithTitle:@"Hide Mermaid Editor"
+		[appMenu addItemWithTitle:@"Hide MermAId Editor"
 		                   action:@selector(hide:)
 		            keyEquivalent:@"h"];
 		NSMenuItem *hideOthersItem = [appMenu addItemWithTitle:@"Hide Others"
@@ -230,7 +230,7 @@ void runApp(const char *url) {
 		                   action:@selector(unhideAllApplications:)
 		            keyEquivalent:@""];
 		[appMenu addItem:[NSMenuItem separatorItem]];
-		[appMenu addItemWithTitle:@"Quit Mermaid Editor"
+		[appMenu addItemWithTitle:@"Quit MermAId Editor"
 		                   action:@selector(terminate:)
 		            keyEquivalent:@"q"];
 		[appMenuItem setSubmenu:appMenu];
