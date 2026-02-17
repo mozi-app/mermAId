@@ -294,11 +294,13 @@ async function renderDiagram(code) {
 
 // Collapse / Expand
 collapseBtn.addEventListener('click', () => {
+    editorPane.style.width = '';
     container.classList.add('collapsed');
     expandBtn.classList.remove('hidden');
 });
 
 expandBtn.addEventListener('click', () => {
+    editorPane.style.width = '';
     container.classList.remove('collapsed');
     expandBtn.classList.add('hidden');
 });
@@ -447,7 +449,7 @@ downloadPngBtn.addEventListener('click', () => {
     const img = new Image();
     img.onload = () => {
         const canvas = document.createElement('canvas');
-        const scale = 8; // 8x for high-res output
+        const scale = 2; // 2x for retina-quality output
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
@@ -456,12 +458,12 @@ downloadPngBtn.addEventListener('click', () => {
         ctx.fillRect(0, 0, img.width, img.height);
         ctx.drawImage(img, 0, 0);
         canvas.toBlob((blob) => {
-            const fd = new FormData();
-            fd.append('file', blob, 'diagram.png');
-            fetch('/api/download/stage', { method: 'POST', body: fd })
-                .then(r => r.json())
-                .then(({ url }) => { window.location.href = url; })
-                .catch(err => console.error('PNG download failed:', err));
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1];
+                downloadViaServer('diagram.png', 'image/png', base64, 'base64');
+            };
+            reader.readAsDataURL(blob);
         }, 'image/png');
     };
     img.src = svgDataURI;

@@ -1,13 +1,10 @@
 package main
 
 import (
-	"crypto/rand"
 	"embed"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -18,9 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
-	"time"
 )
 
 //go:embed static
@@ -29,16 +24,6 @@ var staticFiles embed.FS
 var server *http.Server
 var serverURL string
 var diagram *DiagramState
-
-// Staged downloads: temporary in-memory storage for two-step download flow.
-// Frontend POSTs binary data to /api/download/stage, gets back a one-time URL.
-// Navigating to that URL triggers WKWebView's Content-Disposition download.
-var stagedDownloads sync.Map
-
-type stagedDownload struct {
-	filename string
-	data     []byte
-}
 
 func stateDir() string {
 	dir, err := os.UserCacheDir()
@@ -122,8 +107,6 @@ func startServer() bool {
 	mux.HandleFunc("PUT /api/diagram", diagram.handleSetDiagram)
 	mux.HandleFunc("GET /api/events", diagram.handleDiagramSSE)
 	mux.HandleFunc("POST /api/download", handleDownload)
-	mux.HandleFunc("POST /api/download/stage", handleStageDownload)
-	mux.HandleFunc("GET /api/download/", handleServeStaged)
 	mux.HandleFunc("GET /api/preferences", handleGetPreferences)
 	mux.HandleFunc("PUT /api/preferences", handleSetPreferences)
 	mux.HandleFunc("POST /api/quit", handleQuit)
@@ -194,66 +177,11 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		body = []byte(data)
 	}
 
+	log.Printf("download: filename=%s size=%d bytes", filename, len(body))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.Write(body)
-}
-
-func handleStageDownload(w http.ResponseWriter, r *http.Request) {
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "missing file", http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
-
-	filename := header.Filename
-	if filename == "" {
-		filename = "download"
-	}
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		http.Error(w, "failed to read file", http.StatusBadRequest)
-		return
-	}
-	log.Printf("staged download: filename=%s size=%d bytes", filename, len(data))
-
-	// Generate a random token
-	tokenBytes := make([]byte, 16)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	token := hex.EncodeToString(tokenBytes)
-
-	stagedDownloads.Store(token, &stagedDownload{filename: filename, data: data})
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"url": "/api/download/" + token})
-}
-
-func handleServeStaged(w http.ResponseWriter, r *http.Request) {
-	token := strings.TrimPrefix(r.URL.Path, "/api/download/")
-	val, ok := stagedDownloads.Load(token)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	dl := val.(*stagedDownload)
-	log.Printf("serving staged download: token=%s size=%d bytes", token, len(dl.data))
-
-	// Clean up after a delay — WKWebView may re-request the URL
-	go func() {
-		time.Sleep(30 * time.Second)
-		stagedDownloads.Delete(token)
-	}()
-
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, dl.filename))
-	w.Header().Set("Content-Length", strconv.Itoa(len(dl.data)))
-	w.Write(dl.data)
 }
 
 func shutdown() {
