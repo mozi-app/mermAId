@@ -1,8 +1,15 @@
 # MermAId Editor
 
-A local Mermaid diagram editor designed for AI-assisted workflows. An AI coding agent (Claude Code, etc.) generates or updates diagrams via MCP or CLI, and you see the results rendered live in your browser. You can also edit diagrams directly — it's a full editor with syntax highlighting, linting, and vim keybindings.
+A local Mermaid diagram editor designed for AI-assisted workflows. It's a
+pretty nice live Mermaid editor. But it's also a tool to be used with AI coding
+agents in generating plans. An AI coding agent (Claude Code, Codex, etc.)
+generates or updates diagrams via MCP or CLI, and you see the results rendered
+live in your browser. You can also edit diagrams directly — it's a full editor
+with syntax highlighting, linting, and vim keybindings. Push changes back to
+the agent, iterate, rinse and repeat.
 
-The editor runs as a small Go server on localhost with a split-pane UI: a CodeMirror text editor on the left and a live Mermaid preview on the right.
+The editor runs as a small Go server on localhost with a split-pane UI: a
+CodeMirror text editor on the left and a live Mermaid preview on the right.
 
 ## Features
 
@@ -33,13 +40,17 @@ cd mermaid-editor
 make build
 ```
 
-This installs JS dependencies, bundles the frontend, and compiles the Go binary. The resulting binary is `./mermaid-editor` — static assets are embedded at compile time, so the single file is all you need.
+This installs JS dependencies, bundles the frontend, and compiles the Go
+binary. The resulting binary is `./mermaid-editor` — static assets are embedded
+at compile time, so the single file is all you need.
 
-On **macOS**, the build uses CGO to link against Cocoa and WebKit for the native app window. On **Linux**, no CGO or system libraries are required.
+On **macOS**, the build uses CGO to link against Cocoa and WebKit for the
+native app window. On **Linux**, no CGO or system libraries are required.
 
 ### Build from source (Windows)
 
-Windows requires Go and Node.js installed. If you have GNU Make (e.g. via [Chocolatey](https://chocolatey.org/), MSYS2, or Git Bash):
+Windows requires Go and Node.js installed. If you have GNU Make (e.g. via
+[Chocolatey](https://chocolatey.org/), MSYS2, or Git Bash):
 
 ```sh
 make build
@@ -76,7 +87,8 @@ On Windows, copy `mermaid-editor.exe` to a directory on your `%PATH%`, or use `g
 make dev
 ```
 
-The editor opens automatically in your default browser. If an instance is already running, it focuses the existing window instead of starting a new one.
+The editor opens automatically in your default browser. If an instance is
+already running, it focuses the existing window instead of starting a new one.
 
 ### Platform notes
 
@@ -93,11 +105,13 @@ The editor opens automatically in your default browser. If an instance is alread
 make macapp
 ```
 
-Creates `MermAId Editor.app`, a self-contained macOS application that lives in the menu bar. This target is macOS-only.
+Creates `MermAId Editor.app`, a self-contained macOS application that lives in
+the menu bar. This target is macOS-only.
 
 ## AI Agent Integration (Claude Code, etc.)
 
-There are two ways to connect an AI agent to the editor. Pick whichever fits your workflow — both provide the same get/set diagram capabilities.
+There are two ways to connect an AI agent to the editor. Pick whichever fits
+your workflow — both provide the same get/set diagram capabilities.
 
 | | MCP Server | CLI Tool |
 |---|---|---|
@@ -110,7 +124,10 @@ There are two ways to connect an AI agent to the editor. Pick whichever fits you
 
 ### Option A: MCP Server
 
-The editor can run as an [MCP](https://modelcontextprotocol.io/) server. In this mode it starts the HTTP server for the browser UI **and** exposes `get_diagram` / `set_diagram` tools over stdio. The agent discovers the tools automatically — no `CLAUDE.md` instructions needed.
+The editor can run as an [MCP](https://modelcontextprotocol.io/) server. In
+this mode it starts the HTTP server for the browser UI **and** exposes
+`get_diagram` / `set_diagram` tools over stdio. The agent discovers the tools
+automatically — no `CLAUDE.md` instructions needed.
 
 #### Setup
 
@@ -127,7 +144,8 @@ Add the server to your Claude Code MCP config (`~/.claude/settings.json` or proj
 }
 ```
 
-That's it. Claude Code will start the editor when it needs it, and the MCP tools will be available automatically.
+That's it. Claude Code will start the editor when it needs it, and the MCP
+tools will be available automatically.
 
 #### Tools
 
@@ -140,7 +158,9 @@ That's it. Claude Code will start the editor when it needs it, and the MCP tools
 
 ### Option B: CLI Tool
 
-The editor ships with `bin/mermaid-cli`, a Ruby script that talks to a running editor instance over its HTTP API. You start the editor yourself and tell the agent about the CLI via `CLAUDE.md`.
+The editor ships with `bin/mermaid-cli`, a Ruby script that talks to a running
+editor instance over its HTTP API. You start the editor yourself and tell the
+agent about the CLI via `CLAUDE.md`.
 
 #### Setup
 
@@ -165,7 +185,9 @@ The editor ships with `bin/mermaid-cli`, a Ruby script that talks to a running e
 
 #### How it works
 
-The CLI discovers the running editor automatically via its state files and talks to it over its localhost HTTP API. Changes made via `set` appear instantly in the browser preview.
+The CLI discovers the running editor automatically via its state files and
+talks to it over its localhost HTTP API. Changes made via `set` appear
+instantly in the browser preview.
 
 #### Commands
 
@@ -185,3 +207,5 @@ The CLI discovers the running editor automatically via its state files and talks
 | `make test`  | Run the test suite             |
 | `make stop`  | Stop a running instance        |
 | `make clean` | Remove build artifacts         |
+
+## Copyright 2026 Quantum Hug, Inc.
