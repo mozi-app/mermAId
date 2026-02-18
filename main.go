@@ -25,7 +25,13 @@ var server *http.Server
 var serverURL string
 var diagram *DiagramState
 
+// stateDirOverride allows tests to redirect state files to a temp directory.
+var stateDirOverride string
+
 func stateDir() string {
+	if stateDirOverride != "" {
+		return stateDirOverride
+	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		dir = os.TempDir()

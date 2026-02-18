@@ -10,25 +10,20 @@
       "Bash(curl:*)",
       "Bash(/usr/libexec/PlistBuddy:*)",
       "Bash(codesign:*)",
-      "WebFetch(domain:docs.ollama.com)",
-      "WebFetch(domain:ollama.readthedocs.io)",
-      "WebFetch(domain:deepwiki.com)",
-      "WebFetch(domain:ollama.com)",
       "Bash(git diff:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(pkill:*)",
       "Bash(go get:*)",
       "Bash(go doc:*)",
-      "Bash(/Users/kmatthias/dev/mermaid/bin/mermaid-cli status:*)",
       "Bash(~/bin/mermaid-cli get:*)",
       "Bash(~/bin/mermaid-cli status:*)",
       "Bash(~/bin/mermaid-cli set:*)",
       "Bash(sips:*)",
-      "Bash(/tmp/mermaid_icon_padded.svg:*)",
       "Bash(rsvg-convert:*)",
       "Bash(iconutil:*)",
       "Bash(git log:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(echo:*)"
     ]
   }
 }
