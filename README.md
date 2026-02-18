@@ -11,6 +11,13 @@ the agent, iterate, rinse and repeat.
 The editor runs as a small Go server on localhost with a split-pane UI: a
 CodeMirror text editor on the left and a live Mermaid preview on the right.
 
+![Split-pane editor with code on the left and rendered diagram on the right](images/editor-ui.png)
+
+AI agents interact with the editor via MCP or CLI to generate and update
+diagrams programmatically.
+
+![Claude Code interacting with the Mermaid editor](images/claude-code-interaction.png)
+
 The native macOS app bundle is a self-contained executable that lives in the
 Dock and is freestanding (including the MCP server).
 
