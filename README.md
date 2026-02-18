@@ -11,6 +11,9 @@ the agent, iterate, rinse and repeat.
 The editor runs as a small Go server on localhost with a split-pane UI: a
 CodeMirror text editor on the left and a live Mermaid preview on the right.
 
+The native macOS app bundle is a self-contained executable that lives in the
+Dock and is freestanding (including the MCP server).
+
 ## Features
 
 - AI agent integration via MCP server or CLI tool — agents can get and set diagrams programmatically
