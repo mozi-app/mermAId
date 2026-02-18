@@ -1,17 +1,20 @@
 # MermAId Editor
 
-A lightweight, local Mermaid diagram editor. It runs a small Go server on localhost that serves a split-pane UI with a CodeMirror text editor on the left and a live-rendered Mermaid diagram preview on the right.
+A local Mermaid diagram editor designed for AI-assisted workflows. An AI coding agent (Claude Code, etc.) generates or updates diagrams via MCP or CLI, and you see the results rendered live in your browser. You can also edit diagrams directly — it's a full editor with syntax highlighting, linting, and vim keybindings.
+
+The editor runs as a small Go server on localhost with a split-pane UI: a CodeMirror text editor on the left and a live Mermaid preview on the right.
 
 ## Features
 
+- AI agent integration via MCP server or CLI tool — agents can get and set diagrams programmatically
 - Live preview with debounced rendering as you type
 - Vim keybindings (via codemirror-vim)
 - Mermaid syntax highlighting and linting
 - Pan and zoom on the diagram preview
 - Export diagrams as SVG or high-resolution PNG
 - Collapsible editor pane
-- AI agent integration via MCP server or CLI tool (Claude Code, etc.)
 - Single-instance enforcement — re-running the binary focuses the existing session
+- Cross-platform: runs on macOS, Linux, and Windows
 - Builds as a native macOS `.app` bundle with a menu-bar icon (tray app)
 
 ## Installation
@@ -20,8 +23,9 @@ A lightweight, local Mermaid diagram editor. It runs a small Go server on localh
 
 - Go 1.25+
 - Node.js / npm
+- **macOS only:** Xcode Command Line Tools (for CGO — the native app window uses Cocoa/WebKit)
 
-### Build from source
+### Build from source (macOS / Linux)
 
 ```sh
 git clone https://github.com/kmatthias/mermaid-editor.git
@@ -31,15 +35,36 @@ make build
 
 This installs JS dependencies, bundles the frontend, and compiles the Go binary. The resulting binary is `./mermaid-editor` — static assets are embedded at compile time, so the single file is all you need.
 
+On **macOS**, the build uses CGO to link against Cocoa and WebKit for the native app window. On **Linux**, no CGO or system libraries are required.
+
+### Build from source (Windows)
+
+Windows requires Go and Node.js installed. If you have GNU Make (e.g. via [Chocolatey](https://chocolatey.org/), MSYS2, or Git Bash):
+
+```sh
+make build
+```
+
+Without Make, run the steps manually in PowerShell:
+
+```powershell
+npm install
+npx esbuild frontend/app.js --bundle --format=iife --minify --sourcemap --outfile=static/bundle.js
+copy frontend\style.css static\style.css
+go build -o mermaid-editor.exe .
+```
+
 ### Install to PATH
 
 ```sh
-# Copy the binary somewhere on your PATH
+# macOS / Linux: copy the binary somewhere on your PATH
 cp mermaid-editor /usr/local/bin/
 
-# Or use go install (requires GOBIN on PATH)
+# Or use go install on any platform (requires GOBIN on PATH)
 go install .
 ```
+
+On Windows, copy `mermaid-editor.exe` to a directory on your `%PATH%`, or use `go install .`.
 
 ## Usage
 
@@ -53,13 +78,22 @@ make dev
 
 The editor opens automatically in your default browser. If an instance is already running, it focuses the existing window instead of starting a new one.
 
-## macOS App Bundle
+### Platform notes
+
+| | macOS | Linux | Windows |
+|---|---|---|---|
+| **Browser** | Opens via `open` | Opens via `xdg-open` | Opens via `rundll32` |
+| **Native window** | Yes (Cocoa/WebKit app) | No — browser only | No — browser only |
+| **App bundle** | `make macapp` | N/A | N/A |
+| **CGO required** | Yes (for native window) | No | No |
+
+### macOS App Bundle
 
 ```sh
 make macapp
 ```
 
-Creates `MermAId Editor.app`, a self-contained macOS application that lives in the menu bar.
+Creates `MermAId Editor.app`, a self-contained macOS application that lives in the menu bar. This target is macOS-only.
 
 ## AI Agent Integration (Claude Code, etc.)
 
