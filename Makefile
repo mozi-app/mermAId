@@ -1,5 +1,8 @@
 .PHONY: all build clean dev macapp stop test help
 
+VERSION ?= dev
+LDFLAGS := -ldflags "-X main.version=$(VERSION)"
+
 STATE_DIR := $(shell python3 -c "import tempfile,os;print(os.path.join(os.path.expanduser('~/Library/Caches'),'mermaid-editor'))" 2>/dev/null || echo /tmp/mermaid-editor)
 
 APP_NAME := MermAId Editor
@@ -29,7 +32,7 @@ static/style.css: frontend/style.css
 	cp frontend/style.css static/style.css
 
 build: static/bundle.js static/style.css #: Build the frontend and Go binary
-	go build -o mermaid-editor .
+	go build $(LDFLAGS) -o mermaid-editor .
 
 dev: node_modules #: Run in dev mode with watch
 	cp frontend/style.css static/style.css
@@ -51,8 +54,8 @@ macapp: build #: Build a macOS .app bundle
 	/usr/libexec/PlistBuddy -c "Add :CFBundleName string '$(APP_NAME)'" \
 		-c "Add :CFBundleDisplayName string '$(APP_NAME)'" \
 		-c "Add :CFBundleIdentifier string '$(APP_ID)'" \
-		-c "Add :CFBundleVersion string '1.0.0'" \
-		-c "Add :CFBundleShortVersionString string '1.0.0'" \
+		-c "Add :CFBundleVersion string '$(VERSION)'" \
+		-c "Add :CFBundleShortVersionString string '$(VERSION)'" \
 		-c "Add :CFBundleExecutable string 'mermaid-editor'" \
 		-c "Add :CFBundleIconFile string 'icon'" \
 		-c "Add :CFBundlePackageType string 'APPL'" \

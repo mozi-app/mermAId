@@ -1,0 +1,183 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build frontend
+        run: |
+          npx esbuild frontend/app.js \
+            --bundle \
+            --format=iife \
+            --minify \
+            --sourcemap \
+            --outfile=static/bundle.js
+          cp frontend/style.css static/style.css
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: |
+            static/bundle.js
+            static/bundle.js.map
+            static/style.css
+
+  build-macos:
+    needs: frontend-build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: static
+
+      - name: Build universal binary
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          CGO_ENABLED=1 GOARCH=arm64 go build -ldflags "-X main.version=${VERSION}" -o mermaid-editor-arm64 .
+          CGO_ENABLED=1 GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o mermaid-editor-amd64 .
+          lipo -create -output mermaid-editor mermaid-editor-arm64 mermaid-editor-amd64
+
+      - name: Create .app bundle
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          APP="MermAId Editor.app"
+          rm -rf "${APP}"
+          mkdir -p "${APP}/Contents/MacOS"
+          mkdir -p "${APP}/Contents/Resources"
+          cp mermaid-editor "${APP}/Contents/MacOS/mermaid-editor"
+          cp icon.icns "${APP}/Contents/Resources/icon.icns"
+          printf 'APPL????' > "${APP}/Contents/PkgInfo"
+          /usr/libexec/PlistBuddy \
+            -c "Add :CFBundleName string 'MermAId Editor'" \
+            -c "Add :CFBundleDisplayName string 'MermAId Editor'" \
+            -c "Add :CFBundleIdentifier string 'com.local.mermaid-editor'" \
+            -c "Add :CFBundleVersion string '${VERSION}'" \
+            -c "Add :CFBundleShortVersionString string '${VERSION}'" \
+            -c "Add :CFBundleExecutable string 'mermaid-editor'" \
+            -c "Add :CFBundleIconFile string 'icon'" \
+            -c "Add :CFBundlePackageType string 'APPL'" \
+            -c "Add :CFBundleInfoDictionaryVersion string '6.0'" \
+            -c "Add :LSMinimumSystemVersion string '10.15'" \
+            -c "Add :NSHighResolutionCapable bool true" \
+            "${APP}/Contents/Info.plist"
+          codesign --force --deep --sign - "${APP}"
+
+      - name: Create archive
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          ditto -c -k --keepParent "MermAId Editor.app" "mermaid-editor-${VERSION}-darwin-universal.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: mermaid-editor-*-darwin-universal.zip
+
+  build-linux:
+    needs: frontend-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: static
+
+      - name: Build
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o mermaid-editor .
+
+      - name: Create archive
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          tar czf "mermaid-editor-${VERSION}-linux-amd64.tar.gz" mermaid-editor
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: mermaid-editor-*-linux-amd64.tar.gz
+
+  build-windows:
+    needs: frontend-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: static
+
+      - name: Build
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o mermaid-editor.exe .
+
+      - name: Create archive
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          zip "mermaid-editor-${VERSION}-windows-amd64.zip" mermaid-editor.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: mermaid-editor-*-windows-amd64.zip
+
+  release:
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-release'
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          gh release create "${VERSION}" --generate-notes dist/*

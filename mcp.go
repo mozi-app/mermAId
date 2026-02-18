@@ -87,7 +87,7 @@ func runMCP() {
 	s := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    "mermaid-editor",
-			Version: "1.0.0",
+			Version: version,
 		},
 		nil,
 	)
