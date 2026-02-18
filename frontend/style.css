@@ -56,6 +56,7 @@ html, body {
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 12px;
+    line-height: 1;
     transition: background 0.15s, color 0.15s;
 }
 
@@ -177,6 +178,7 @@ html, body {
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 12px;
+    line-height: 1;
     transition: background 0.15s, color 0.15s;
 }
 
@@ -279,6 +281,7 @@ html, body {
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 12px;
+    line-height: 1;
     transition: background 0.15s, color 0.15s;
 }
 

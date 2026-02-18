@@ -4,9 +4,19 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 )
+
+func handleQuit(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+	go func() {
+		shutdown()
+		os.Exit(0)
+	}()
+}
 
 func main() {
 	if isMCPMode() {
