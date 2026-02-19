@@ -174,6 +174,7 @@ let isExternalUpdate = false;
 const container = document.getElementById('container');
 const editorEl = document.getElementById('editor');
 const previewEl = document.getElementById('preview');
+const formatBtn = document.getElementById('format-btn');
 const collapseBtn = document.getElementById('collapse-btn');
 const expandBtn = document.getElementById('expand-btn');
 const resetZoomBtn = document.getElementById('reset-zoom-btn');
@@ -292,6 +293,21 @@ async function renderDiagram(code) {
         // Errors are shown via the linter — keep last valid diagram
     }
 }
+
+function formatEditorContent() {
+    const current = editor.state.doc.toString();
+    const formatted = prettyPrintMermaidForEditor(current);
+    if (formatted === current) return;
+
+    editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: formatted },
+    });
+}
+
+formatBtn.addEventListener('click', () => {
+    formatEditorContent();
+    editor.focus();
+});
 
 // Collapse / Expand
 collapseBtn.addEventListener('click', () => {
