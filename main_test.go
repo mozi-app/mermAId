@@ -184,6 +184,51 @@ func TestPreferences(t *testing.T) {
 	})
 }
 
+func TestFileArg(t *testing.T) {
+	Convey("Given fileArg()", t, func() {
+		origArgs := os.Args
+		t.Cleanup(func() { os.Args = origArgs })
+
+		Convey("Returns empty string when no arguments", func() {
+			os.Args = []string{"mermaid-editor"}
+			So(fileArg(), ShouldEqual, "")
+		})
+
+		Convey("Returns the first non-flag argument", func() {
+			os.Args = []string{"mermaid-editor", "diagram.mmd"}
+			So(fileArg(), ShouldEqual, "diagram.mmd")
+		})
+
+		Convey("Skips flags and returns the file argument", func() {
+			os.Args = []string{"mermaid-editor", "--mcp", "diagram.mmd"}
+			So(fileArg(), ShouldEqual, "diagram.mmd")
+		})
+
+		Convey("Returns empty when only flags are present", func() {
+			os.Args = []string{"mermaid-editor", "--mcp"}
+			So(fileArg(), ShouldEqual, "")
+		})
+	})
+}
+
+func TestPushDiagram(t *testing.T) {
+	Convey("Given a running editor server", t, func() {
+		ds := NewDiagramState("old content")
+		mux := http.NewServeMux()
+		mux.HandleFunc("PUT /api/diagram", ds.handleSetDiagram)
+		srv := httptest.NewServer(mux)
+		t.Cleanup(srv.Close)
+
+		Convey("pushDiagram updates the diagram content", func() {
+			pushDiagram(srv.URL, "graph TD; A-->B")
+
+			content, version := ds.Get()
+			So(content, ShouldEqual, "graph TD; A-->B")
+			So(version, ShouldEqual, 2)
+		})
+	})
+}
+
 func TestStateFiles(t *testing.T) {
 	Convey("Given a test state directory", t, func() {
 		tmp := useTestStateDir(t)

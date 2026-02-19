@@ -10,6 +10,7 @@ package main
 
 void runApp(const char *url);
 void terminateApp(void);
+void focusApp(void);
 */
 import "C"
 
@@ -31,6 +32,11 @@ func goShutdown() {
 //export goOpenBrowser
 func goOpenBrowser() {
 	go openBrowser(serverURL)
+}
+
+func handleFocus(w http.ResponseWriter, r *http.Request) {
+	C.focusApp()
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handleQuit(w http.ResponseWriter, r *http.Request) {

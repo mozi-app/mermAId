@@ -10,6 +10,10 @@ import (
 	"syscall"
 )
 
+func handleFocus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func handleQuit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 	go func() {
