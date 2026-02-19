@@ -26,6 +26,7 @@ import { vim, Vim, getCM } from '@replit/codemirror-vim';
 import { indentWithTab } from '@codemirror/commands';
 import mermaid from 'mermaid';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
+import { prettyPrintMermaidForEditor } from './format.js';
 
 // Register :q to quit the app
 Vim.defineEx('quit', 'q', () => {
@@ -495,12 +496,13 @@ function connectSSE() {
             const event = JSON.parse(e.data);
             if (event.source === 'browser') return; // Ignore our own changes
 
+            const formattedContent = prettyPrintMermaidForEditor(event.content);
             const currentContent = editor.state.doc.toString();
-            if (event.content === currentContent) return; // Already in sync
+            if (formattedContent === currentContent) return; // Already in sync
 
             isExternalUpdate = true;
             editor.dispatch({
-                changes: { from: 0, to: editor.state.doc.length, insert: event.content },
+                changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
             });
             isExternalUpdate = false;
         } catch {
@@ -529,9 +531,10 @@ fetch('/api/diagram')
     .then(r => r.json())
     .then(({ content }) => {
         if (content) {
+            const formattedContent = prettyPrintMermaidForEditor(content);
             isExternalUpdate = true;
             editor.dispatch({
-                changes: { from: 0, to: editor.state.doc.length, insert: content },
+                changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
             });
             isExternalUpdate = false;
         }
