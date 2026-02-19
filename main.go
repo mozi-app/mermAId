@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -81,13 +82,69 @@ func clearState() {
 	os.Remove(portFile())
 }
 
+// fileArg returns the first non-flag argument from the command line, or "".
+func fileArg() string {
+	for _, arg := range os.Args[1:] {
+		if !strings.HasPrefix(arg, "-") {
+			return arg
+		}
+	}
+	return ""
+}
+
+// activateExisting brings a running instance to the foreground. It tries the
+// /api/focus endpoint first (which activates the native macOS window) and falls
+// back to opening the URL in the default browser.
+func activateExisting(baseURL string) {
+	resp, err := http.Post(baseURL+"/api/focus", "", nil)
+	if err == nil {
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusNoContent {
+			return
+		}
+	}
+	openBrowser(baseURL)
+}
+
+// pushDiagram sends diagram content to a running editor instance via HTTP PUT.
+func pushDiagram(baseURL, content string) {
+	body, _ := json.Marshal(map[string]string{
+		"content": content,
+		"source":  "cli",
+	})
+	req, err := http.NewRequest("PUT", baseURL+"/api/diagram", bytes.NewReader(body))
+	if err != nil {
+		log.Printf("Failed to push diagram: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("Failed to push diagram: %v", err)
+		return
+	}
+	resp.Body.Close()
+}
+
 // startServer checks for an existing instance, starts the HTTP server in a
 // background goroutine, and opens the browser. Returns false if an existing
 // instance was found (browser opened to it, nothing more to do).
 func startServer() bool {
+	var initialContent string
+	if f := fileArg(); f != "" {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			log.Fatalf("Cannot read %s: %v", f, err)
+		}
+		initialContent = string(data)
+	}
+
 	if url := checkExisting(); url != "" {
 		fmt.Printf("Already running at %s\n", url)
-		openBrowser(url)
+		if initialContent != "" {
+			pushDiagram(url, initialContent)
+		}
+		activateExisting(url)
 		return false
 	}
 
@@ -106,7 +163,7 @@ func startServer() bool {
 	serverURL = url
 	writeState(port)
 
-	diagram = NewDiagramState("")
+	diagram = NewDiagramState(initialContent)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/diagram", diagram.handleGetDiagram)
@@ -115,6 +172,7 @@ func startServer() bool {
 	mux.HandleFunc("POST /api/download", handleDownload)
 	mux.HandleFunc("GET /api/preferences", handleGetPreferences)
 	mux.HandleFunc("PUT /api/preferences", handleSetPreferences)
+	mux.HandleFunc("POST /api/focus", handleFocus)
 	mux.HandleFunc("POST /api/quit", handleQuit)
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 

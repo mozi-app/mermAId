@@ -192,6 +192,14 @@ extern void goOpenBrowser(void);
 }
 @end
 
+void focusApp(void) {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[NSApp activateIgnoringOtherApps:YES];
+		MermaidAppDelegate *delegate = (MermaidAppDelegate *)[NSApp delegate];
+		[delegate.window makeKeyAndOrderFront:nil];
+	});
+}
+
 void terminateApp(void) {
 	dispatch_async(dispatch_get_main_queue(), ^{
 		[NSApp terminate:nil];

@@ -524,6 +524,19 @@ editor.dom.addEventListener('paste', () => {
     }
 }, true);
 
-// Initial render and sync to server
-renderDiagram(STARTER_DIAGRAM);
-scheduleSyncToServer();
+// Initial load: fetch current diagram from server (may have been set via CLI arg)
+fetch('/api/diagram')
+    .then(r => r.json())
+    .then(({ content }) => {
+        if (content) {
+            isExternalUpdate = true;
+            editor.dispatch({
+                changes: { from: 0, to: editor.state.doc.length, insert: content },
+            });
+            isExternalUpdate = false;
+        }
+        renderDiagram(editor.state.doc.toString());
+    })
+    .catch(() => {
+        renderDiagram(STARTER_DIAGRAM);
+    });
