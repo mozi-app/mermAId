@@ -36,6 +36,7 @@
 require "net/http"
 require "json"
 require "uri"
+require "tmpdir"
 
 module MermaidCLI
   # Discover the running editor's base URL from its state files.
@@ -59,14 +60,22 @@ module MermaidCLI
       return nil
     end
 
-    pid  = File.read(pid_path).strip.to_i
+    pid_raw = File.read(pid_path).strip
     port = File.read(port_path).strip
 
-    # Check if the process is actually running
+    return nil if pid_raw.empty? || port.empty?
+
+    pid = pid_raw.to_i
+    return nil if pid <= 0
+
+    # Check if the process is actually running.
+    # EPERM means the process exists but this environment cannot signal it.
     begin
       Process.kill(0, pid)
-    rescue Errno::ESRCH, Errno::EPERM
+    rescue Errno::ESRCH
       return nil
+    rescue Errno::EPERM
+      # Continue to HTTP probe.
     end
 
     "http://127.0.0.1:#{port}"
@@ -82,10 +91,46 @@ module MermaidCLI
     url
   end
 
+  def self.connectivity_detail(error, url)
+    msg = error.message.to_s
+
+    if error.is_a?(Errno::EPERM) || msg.match?(/operation not permitted/i)
+      return "Local access to #{url} is blocked by this environment (#{msg}). Retry outside sandbox or with elevated permissions."
+    end
+
+    if error.is_a?(Errno::ECONNREFUSED) || msg.match?(/connection refused/i)
+      return "Connection refused at #{url}. The editor may have stopped; restart mermaid-editor."
+    end
+
+    if error.is_a?(Errno::ETIMEDOUT) || error.is_a?(Net::OpenTimeout) || error.is_a?(Net::ReadTimeout)
+      return "Timed out reaching #{url} (#{msg})."
+    end
+
+    "Process found but not reachable at #{url}: #{msg}"
+  end
+
+  def self.http_get(url, path)
+    uri = URI("#{url}#{path}")
+    Net::HTTP.get_response(uri)
+  rescue StandardError => e
+    $stderr.puts "Error: #{connectivity_detail(e, url)}"
+    exit 1
+  end
+
+  def self.http_put_json(url, path, payload)
+    uri = URI("#{url}#{path}")
+    req = Net::HTTP::Put.new(uri, "Content-Type" => "application/json")
+    req.body = JSON.generate(payload)
+
+    Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+  rescue StandardError => e
+    $stderr.puts "Error: #{connectivity_detail(e, url)}"
+    exit 1
+  end
+
   def self.get_diagram
     url = require_url!
-    uri = URI("#{url}/api/diagram")
-    response = Net::HTTP.get_response(uri)
+    response = http_get(url, "/api/diagram")
 
     unless response.is_a?(Net::HTTPSuccess)
       $stderr.puts "Error: GET /api/diagram returned #{response.code}"
@@ -98,12 +143,7 @@ module MermaidCLI
 
   def self.set_diagram(content)
     url = require_url!
-    uri = URI("#{url}/api/diagram")
-
-    req = Net::HTTP::Put.new(uri, "Content-Type" => "application/json")
-    req.body = JSON.generate({ content: content, source: "cli" })
-
-    response = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+    response = http_put_json(url, "/api/diagram", { content: content, source: "cli" })
 
     unless response.is_a?(Net::HTTPSuccess)
       $stderr.puts "Error: PUT /api/diagram returned #{response.code}"
@@ -121,21 +161,18 @@ module MermaidCLI
       exit 1
     end
 
-    # Verify it responds
-    begin
-      uri = URI("#{url}/api/diagram")
-      response = Net::HTTP.get_response(uri)
-      if response.is_a?(Net::HTTPSuccess)
-        data = JSON.parse(response.body)
-        puts "Running at #{url} (version #{data["version"]})"
-      else
-        puts "Process found but not responding (#{response.code})"
-        exit 1
-      end
-    rescue StandardError => e
-      puts "Process found but not reachable: #{e.message}"
+    response = http_get(url, "/api/diagram")
+
+    if response.is_a?(Net::HTTPSuccess)
+      data = JSON.parse(response.body)
+      puts "Running at #{url} (version #{data["version"]})"
+    else
+      puts "Process found but not responding (#{response.code})"
       exit 1
     end
+  rescue StandardError => e
+    puts connectivity_detail(e, url)
+    exit 1
   end
 
   HELP = <<~HELP
