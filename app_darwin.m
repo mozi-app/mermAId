@@ -24,6 +24,8 @@ extern void goOpenBrowser(void);
 		            backing:NSBackingStoreBuffered
 		              defer:NO];
 	[self.window setTitle:@"MermAId Editor"];
+	[self.window setTitlebarAppearsTransparent:YES];
+	[self.window setTitleVisibility:NSWindowTitleHidden];
 	if (![self.window setFrameAutosaveName:@"MermaidEditorMain"]) {
 		[self.window center];
 	}

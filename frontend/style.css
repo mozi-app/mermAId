@@ -7,14 +7,23 @@
 html, body {
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     background: #fffdf7;
     color: #2d3436;
     overflow: hidden;
 }
 
+/* Top accent stripe */
+#accent-bar {
+    height: 3px;
+    background: linear-gradient(90deg, #e17055, #fdcb6e, #e17055);
+    flex-shrink: 0;
+}
+
 #container {
     display: flex;
-    height: 100vh;
+    height: calc(100vh - 3px);
     width: 100vw;
 }
 
@@ -27,18 +36,21 @@ html, body {
     background: #fffdf7;
     transition: width 0.3s ease;
     overflow: hidden;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.06);
+    z-index: 1;
 }
 
 #editor-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
-    background: #fff4e0;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, #fff7e8, #fff0d4);
     border-bottom: 1px solid #f0d9a0;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     color: #e17055;
+    letter-spacing: 0.3px;
     flex-shrink: 0;
 }
 
@@ -53,32 +65,41 @@ html, body {
     border: 1px solid #f0d9a0;
     color: #e17055;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 5px 10px;
+    border-radius: 6px;
     font-size: 12px;
+    font-weight: 600;
     line-height: 1;
-    transition: background 0.15s, color 0.15s;
+    transition: all 0.2s ease;
 }
 
 #editor-header button:hover {
     background: #ffeaa7;
     color: #d63031;
+    box-shadow: 0 2px 6px rgba(225, 112, 85, 0.15);
+    transform: translateY(-1px);
+}
+
+#editor-header button:active {
+    transform: translateY(0);
+    box-shadow: none;
 }
 
 /* Vim toggle switch */
 .vim-toggle {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     cursor: pointer;
     user-select: none;
 }
 
 .vim-toggle-label {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     color: #e17055;
     text-transform: lowercase;
+    letter-spacing: 0.5px;
 }
 
 .vim-toggle input {
@@ -87,11 +108,12 @@ html, body {
 
 .vim-toggle-slider {
     position: relative;
-    width: 28px;
-    height: 16px;
-    background: #f0d9a0;
-    border-radius: 8px;
+    width: 32px;
+    height: 18px;
+    background: #e8d0a0;
+    border-radius: 9px;
     transition: background 0.2s;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .vim-toggle-slider::after {
@@ -99,11 +121,12 @@ html, body {
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     background: #fff;
     border-radius: 50%;
     transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .vim-toggle input:checked + .vim-toggle-slider {
@@ -111,7 +134,7 @@ html, body {
 }
 
 .vim-toggle input:checked + .vim-toggle-slider::after {
-    transform: translateX(12px);
+    transform: translateX(14px);
 }
 
 #editor {
@@ -129,16 +152,43 @@ html, body {
 
 /* Divider */
 #divider {
-    width: 4px;
+    width: 6px;
     background: #f0d9a0;
     cursor: col-resize;
     flex-shrink: 0;
     transition: width 0.3s ease, background 0.15s;
+    position: relative;
+}
+
+#divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 32px;
+    background: repeating-linear-gradient(
+        180deg,
+        #d4b880 0px,
+        #d4b880 3px,
+        transparent 3px,
+        transparent 7px
+    );
+    border-radius: 1px;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+
+#divider:hover::before,
+#divider.dragging::before {
+    opacity: 0;
 }
 
 #divider:hover,
 #divider.dragging {
     background: #e17055;
+    width: 6px;
 }
 
 /* Preview pane */
@@ -154,19 +204,20 @@ html, body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
-    background: #fff4e0;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, #fff7e8, #fff0d4);
     border-bottom: 1px solid #f0d9a0;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     color: #e17055;
+    letter-spacing: 0.3px;
     flex-shrink: 0;
     gap: 8px;
 }
 
 #preview-header-buttons {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
 }
 
@@ -175,16 +226,24 @@ html, body {
     border: 1px solid #f0d9a0;
     color: #e17055;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 5px 10px;
+    border-radius: 6px;
     font-size: 12px;
+    font-weight: 600;
     line-height: 1;
-    transition: background 0.15s, color 0.15s;
+    transition: all 0.2s ease;
 }
 
 #preview-header button:hover {
     background: #ffeaa7;
     color: #d63031;
+    box-shadow: 0 2px 6px rgba(225, 112, 85, 0.15);
+    transform: translateY(-1px);
+}
+
+#preview-header button:active {
+    transform: translateY(0);
+    box-shadow: none;
 }
 
 /* Download dropdown */
@@ -194,19 +253,28 @@ html, body {
 }
 
 #download-btn {
-    background: none;
-    border: 1px solid #f0d9a0;
-    color: #e17055;
+    background: linear-gradient(180deg, #e8785f, #d4604a);
+    border: none;
+    color: #fff;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 5px 12px;
+    border-radius: 6px;
     font-size: 12px;
-    transition: background 0.15s, color 0.15s;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(225, 112, 85, 0.3);
 }
 
 #download-btn:hover {
-    background: #ffeaa7;
-    color: #d63031;
+    background: linear-gradient(180deg, #d4604a, #c0503c);
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(225, 112, 85, 0.4);
+    transform: translateY(-1px);
+}
+
+#download-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(225, 112, 85, 0.3);
 }
 
 .download-menu {
@@ -214,13 +282,13 @@ html, body {
     position: absolute;
     top: 100%;
     right: 0;
-    margin-top: 4px;
+    margin-top: 6px;
     background: #ffffff;
     border: 1px solid #f0d9a0;
     border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
     z-index: 100;
-    min-width: 140px;
+    min-width: 150px;
     overflow: hidden;
 }
 
@@ -228,22 +296,28 @@ html, body {
     display: block;
 }
 
-.download-menu button {
+#preview-header .download-menu button {
     display: block;
     width: 100%;
     text-align: left;
     background: none;
     border: none;
-    padding: 8px 14px;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 10px 16px;
     font-size: 13px;
+    font-weight: 500;
     color: #2d3436;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: all 0.15s;
+    transform: none;
 }
 
-.download-menu button:hover {
+#preview-header .download-menu button:hover {
     background: #ffeaa7;
     color: #d63031;
+    box-shadow: none;
+    transform: none;
 }
 
 .download-menu button + button {
@@ -256,6 +330,9 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(255, 244, 224, 0.4) 0%, transparent 70%),
+        linear-gradient(180deg, #fefefe, #faf8f4);
 }
 
 #preview svg {
@@ -278,11 +355,12 @@ html, body {
     border: 1px solid #f0d9a0;
     color: #e17055;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 5px 10px;
+    border-radius: 6px;
     font-size: 12px;
+    font-weight: 600;
     line-height: 1;
-    transition: background 0.15s, color 0.15s;
+    transition: all 0.2s ease;
 }
 
 #expand-btn.hidden {
@@ -292,6 +370,13 @@ html, body {
 #expand-btn:hover {
     background: #ffeaa7;
     color: #d63031;
+    box-shadow: 0 2px 6px rgba(225, 112, 85, 0.15);
+    transform: translateY(-1px);
+}
+
+#expand-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
 }
 
 #preview-header-left {
@@ -306,21 +391,25 @@ html, body {
 }
 
 #editor .cm-gutters {
-    background: #fff4e0;
+    background: linear-gradient(90deg, #fff4e0, #fffaf0);
     border-right: 1px solid #f0d9a0;
-    color: #e17055;
+    color: #d4956a;
+    font-weight: 500;
 }
 
 #editor .cm-activeLineGutter {
     background: #ffeaa7;
+    color: #e17055;
+    font-weight: 700;
 }
 
 #editor .cm-activeLine {
-    background: rgba(253, 203, 110, 0.15);
+    background: rgba(253, 203, 110, 0.2);
 }
 
 #editor .cm-cursor {
     border-left-color: #e17055;
+    border-left-width: 2px;
 }
 
 #editor .cm-selectionBackground {
@@ -337,5 +426,6 @@ html, body {
     background: #ffffff !important;
     color: #2d3436 !important;
     border: 1px solid #f0d9a0 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
 }

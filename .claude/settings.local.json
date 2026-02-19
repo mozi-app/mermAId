@@ -39,7 +39,8 @@
       "Bash(magick:*)",
       "mcp__playwright__browser_evaluate",
       "WebFetch(domain:mstdn.social)",
-      "Bash(brew list:*)"
+      "Bash(brew list:*)",
+      "Bash(open:*)"
     ]
   }
 }
