@@ -104,6 +104,7 @@ func (d *DiagramState) handleSetDiagram(w http.ResponseWriter, r *http.Request) 
 	}
 
 	version := d.Set(req.Content, req.Source)
+	maybeFocusApp()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
 		"version": version,
