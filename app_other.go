@@ -14,6 +14,8 @@ func handleFocus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func maybeFocusApp() {}
+
 func handleQuit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 	go func() {

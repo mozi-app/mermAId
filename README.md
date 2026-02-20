@@ -191,6 +191,7 @@ agent about the CLI via `CLAUDE.md`.
    - `bin/mermaid-cli set --text "graph TD; A-->B"` — set the diagram from a string
    - `bin/mermaid-cli set diagram.mmd` — set the diagram from a file
    - `bin/mermaid-cli status` — check if the editor is running
+   - For multiline diagrams, avoid literal `\n` in plain quotes. Use ANSI-C quoting or a file/heredoc so real newlines are passed, e.g. `bin/mermaid-cli set --text $'sequenceDiagram\n  A->>B: Hi'` or `cat <<'EOF' > /tmp/diagram.mmd` then `bin/mermaid-cli set /tmp/diagram.mmd`
    ```
 
 #### How it works
