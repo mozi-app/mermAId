@@ -14,12 +14,14 @@ import { EditorState, Compartment } from '@codemirror/state';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import {
     foldGutter,
+    HighlightStyle,
     indentOnInput,
     syntaxHighlighting,
     defaultHighlightStyle,
     bracketMatching,
     foldKeymap,
 } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import { vim, Vim, getCM } from '@replit/codemirror-vim';
@@ -36,6 +38,8 @@ Vim.defineEx('quit', 'q', () => {
 // Vim mode preference
 const vimCompartment = new Compartment();
 const vimKeyCompartment = new Compartment();
+const editorThemeCompartment = new Compartment();
+const syntaxCompartment = new Compartment();
 
 function vimExtensions() {
     return [vim()];
@@ -71,12 +75,16 @@ function savePreference(key, value) {
 }
 
 // Initialize mermaid
-mermaid.initialize({
-    startOnLoad: false,
-    theme: 'default',
-    securityLevel: 'loose',
-    sequence: { showSequenceNumbers: false },
-});
+function initMermaid(theme) {
+    mermaid.initialize({
+        startOnLoad: false,
+        theme,
+        securityLevel: 'loose',
+        sequence: { showSequenceNumbers: false },
+    });
+}
+
+initMermaid('default');
 
 const STARTER_DIAGRAM = '';
 
@@ -178,6 +186,7 @@ const formatBtn = document.getElementById('format-btn');
 const collapseBtn = document.getElementById('collapse-btn');
 const expandBtn = document.getElementById('expand-btn');
 const resetZoomBtn = document.getElementById('reset-zoom-btn');
+const themeToggle = document.getElementById('theme-toggle');
 
 // Light theme for CodeMirror
 const lightTheme = EditorView.theme({
@@ -199,6 +208,46 @@ const lightTheme = EditorView.theme({
     '.cm-activeLine': { backgroundColor: 'rgba(253, 203, 110, 0.15)' },
 });
 
+const darkTheme = EditorView.theme({
+    '&': {
+        backgroundColor: '#080808',
+        fontFamily: '"Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    },
+    '.cm-content': { color: '#e5e5e5', caretColor: '#f5f5f5' },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#f5f5f5' },
+    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
+        backgroundColor: 'rgba(245, 245, 245, 0.18)',
+    },
+    '.cm-gutters': {
+        backgroundColor: '#050505',
+        color: '#9ca3af',
+        borderRight: '1px solid #2a2a2a',
+    },
+    '.cm-activeLineGutter': { backgroundColor: '#161616', color: '#d4d4d4' },
+    '.cm-activeLine': { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+});
+
+const darkHighlightStyle = HighlightStyle.define([
+    { tag: tags.keyword, color: '#d4d4d4' },
+    { tag: [tags.name, tags.deleted, tags.character, tags.propertyName], color: '#f5f5f5' },
+    { tag: [tags.function(tags.variableName), tags.labelName], color: '#e5e5e5' },
+    { tag: [tags.color, tags.constant(tags.name), tags.standard(tags.name)], color: '#e2e8f0' },
+    { tag: [tags.definition(tags.name), tags.separator], color: '#d4d4d4' },
+    { tag: [tags.className], color: '#e5e7eb' },
+    { tag: [tags.number, tags.changed, tags.annotation, tags.modifier], color: '#f4f4f5' },
+    { tag: [tags.typeName], color: '#d4d4d8' },
+    { tag: [tags.operator, tags.operatorKeyword], color: '#d4d4d4' },
+    { tag: [tags.url, tags.escape, tags.regexp, tags.link], color: '#e5e7eb' },
+    { tag: [tags.meta, tags.comment], color: '#9ca3af' },
+    { tag: tags.strong, fontWeight: '700' },
+    { tag: tags.emphasis, fontStyle: 'italic' },
+    { tag: tags.strikethrough, textDecoration: 'line-through' },
+    { tag: tags.heading, color: '#f5f5f5', fontWeight: '700' },
+    { tag: [tags.atom, tags.bool, tags.special(tags.variableName)], color: '#e5e7eb' },
+    { tag: [tags.processingInstruction, tags.string, tags.inserted], color: '#f3f4f6' },
+    { tag: tags.invalid, color: '#ffffff', backgroundColor: '#dc2626' },
+]);
+
 // Create CodeMirror editor (starts with vim enabled; adjusted after loading prefs)
 const editor = new EditorView({
     state: EditorState.create({
@@ -214,7 +263,7 @@ const editor = new EditorView({
             dropCursor(),
             EditorState.allowMultipleSelections.of(true),
             indentOnInput(),
-            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            syntaxCompartment.of(syntaxHighlighting(defaultHighlightStyle, { fallback: true })),
             bracketMatching(),
             rectangularSelection(),
             crosshairCursor(),
@@ -228,7 +277,7 @@ const editor = new EditorView({
                 ...foldKeymap,
                 ...lintKeymap,
             ]),
-            lightTheme,
+            editorThemeCompartment.of(lightTheme),
             mermaidLanguage(),
             mermaidLinter(),
             EditorView.updateListener.of((update) => {
@@ -243,6 +292,22 @@ const editor = new EditorView({
     }),
     parent: editorEl,
 });
+
+function applyTheme(isDark) {
+    themeToggle.checked = isDark;
+    document.body.classList.toggle('dark-mode', isDark);
+    initMermaid(isDark ? 'dark' : 'default');
+    editor.dispatch({
+        effects: [
+            editorThemeCompartment.reconfigure(isDark ? darkTheme : lightTheme),
+            syntaxCompartment.reconfigure(
+                isDark
+                    ? syntaxHighlighting(darkHighlightStyle, { fallback: true })
+                    : syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            ),
+        ],
+    });
+}
 
 // Rendering
 function scheduleRender() {
@@ -337,15 +402,25 @@ function setVimMode(enabled) {
 
 // Load saved preference (default: vim on)
 fetch('/api/preferences').then(r => r.json()).then(prefs => {
+    applyTheme(Boolean(prefs.darkMode));
     if (prefs.vimMode === false) {
         setVimMode(false);
     }
+    scheduleRender();
 }).catch(() => {});
 
 vimToggle.addEventListener('change', () => {
     const enabled = vimToggle.checked;
     savePreference('vimMode', enabled);
     setVimMode(enabled);
+    editor.focus();
+});
+
+themeToggle.addEventListener('change', () => {
+    const isDark = themeToggle.checked;
+    savePreference('darkMode', isDark);
+    applyTheme(isDark);
+    scheduleRender();
     editor.focus();
 });
 

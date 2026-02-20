@@ -94,6 +94,57 @@ html, body {
     user-select: none;
 }
 
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.theme-toggle-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #e17055;
+    text-transform: lowercase;
+    letter-spacing: 0.5px;
+}
+
+.theme-toggle input {
+    display: none;
+}
+
+.theme-toggle-slider {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    background: #e8d0a0;
+    border-radius: 9px;
+    transition: background 0.2s;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.theme-toggle input:checked + .theme-toggle-slider {
+    background: #2d3436;
+}
+
+.theme-toggle input:checked + .theme-toggle-slider::after {
+    transform: translateX(14px);
+}
+
 .vim-toggle-label {
     font-size: 11px;
     font-weight: 700;
@@ -428,4 +479,142 @@ html, body {
     border: 1px solid #f0d9a0 !important;
     border-radius: 8px !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Dark mode */
+body.dark-mode {
+    background: #090909;
+    color: #e5e5e5;
+}
+
+body.dark-mode #accent-bar {
+    background: linear-gradient(90deg, #5a5a5a, #8c8c8c, #5a5a5a);
+}
+
+body.dark-mode #editor-pane {
+    background: #0d0d0d;
+    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode #editor-header,
+body.dark-mode #preview-header {
+    background: linear-gradient(180deg, #1a1a1a, #111111);
+    border-bottom: 1px solid #2a2a2a;
+    color: #dddddd;
+}
+
+body.dark-mode #editor-header button,
+body.dark-mode #preview-header button,
+body.dark-mode #expand-btn {
+    border-color: #3a3a3a;
+    color: #d4d4d4;
+}
+
+body.dark-mode #editor-header button:hover,
+body.dark-mode #preview-header button:hover,
+body.dark-mode #expand-btn:hover {
+    background: #222222;
+    color: #f5f5f5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+body.dark-mode .vim-toggle-label,
+body.dark-mode .theme-toggle-label {
+    color: #cfcfcf;
+}
+
+body.dark-mode .vim-toggle-slider,
+body.dark-mode .theme-toggle-slider {
+    background: #4a4a4a;
+}
+
+body.dark-mode .vim-toggle input:checked + .vim-toggle-slider {
+    background: #a3a3a3;
+}
+
+body.dark-mode .theme-toggle input:checked + .theme-toggle-slider {
+    background: #f5f5f5;
+}
+
+body.dark-mode #divider {
+    background: #2a2a2a;
+}
+
+body.dark-mode #divider::before {
+    background: repeating-linear-gradient(
+        180deg,
+        #666666 0px,
+        #666666 3px,
+        transparent 3px,
+        transparent 7px
+    );
+}
+
+body.dark-mode #divider:hover,
+body.dark-mode #divider.dragging {
+    background: #8c8c8c;
+}
+
+body.dark-mode .download-menu {
+    background: #161616;
+    border-color: #303030;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+body.dark-mode #preview-header .download-menu button {
+    color: #e5e5e5;
+}
+
+body.dark-mode #preview-header .download-menu button:hover {
+    background: #2a2a2a;
+    color: #ffffff;
+}
+
+body.dark-mode .download-menu button + button {
+    border-top-color: #303030;
+}
+
+body.dark-mode #preview {
+    background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.09) 0%, transparent 72%),
+        linear-gradient(180deg, #060606, #0d0d0d);
+}
+
+body.dark-mode #editor .cm-editor {
+    background: #080808;
+}
+
+body.dark-mode #editor .cm-gutters {
+    background: linear-gradient(90deg, #050505, #080808);
+    border-right-color: #2a2a2a;
+    color: #9ca3af;
+}
+
+body.dark-mode #editor .cm-activeLineGutter {
+    background: #161616;
+    color: #d4d4d4;
+}
+
+body.dark-mode #editor .cm-activeLine {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-mode #editor .cm-cursor {
+    border-left-color: #f5f5f5;
+}
+
+body.dark-mode #editor .cm-selectionBackground {
+    background: rgba(245, 245, 245, 0.18) !important;
+}
+
+body.dark-mode #editor .cm-content {
+    color: #e5e5e5;
+    caret-color: #f5f5f5;
+}
+
+body.dark-mode .cm-tooltip-lint {
+    background: #111111 !important;
+    color: #e5e5e5 !important;
+    border-color: #2a2a2a !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55) !important;
 }
