@@ -94,6 +94,57 @@ html, body {
     user-select: none;
 }
 
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.theme-toggle-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #e17055;
+    text-transform: lowercase;
+    letter-spacing: 0.5px;
+}
+
+.theme-toggle input {
+    display: none;
+}
+
+.theme-toggle-slider {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    background: #e8d0a0;
+    border-radius: 9px;
+    transition: background 0.2s;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.theme-toggle input:checked + .theme-toggle-slider {
+    background: #2d3436;
+}
+
+.theme-toggle input:checked + .theme-toggle-slider::after {
+    transform: translateX(14px);
+}
+
 .vim-toggle-label {
     font-size: 11px;
     font-weight: 700;
@@ -428,4 +479,144 @@ html, body {
     border: 1px solid #f0d9a0 !important;
     border-radius: 8px !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Dark mode */
+body.dark-mode {
+    background: #100b07;
+    color: #f4e6cc;
+}
+
+body.dark-mode #accent-bar {
+    background: linear-gradient(90deg, #d4604a, #f2b661, #e17055, #f2b661, #d4604a);
+}
+
+body.dark-mode #editor-pane {
+    background: #14100b;
+    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.65);
+}
+
+body.dark-mode #editor-header,
+body.dark-mode #preview-header {
+    background: linear-gradient(180deg, #241a11, #18110b);
+    border-bottom: 1px solid #4f3924;
+    color: #f2c38f;
+}
+
+body.dark-mode #editor-header button,
+body.dark-mode #preview-header button,
+body.dark-mode #expand-btn {
+    border-color: #5f442a;
+    color: #f2c38f;
+}
+
+body.dark-mode #editor-header button:hover,
+body.dark-mode #preview-header button:hover,
+body.dark-mode #expand-btn:hover {
+    background: #332315;
+    color: #ffe4bf;
+    box-shadow: 0 2px 8px rgba(225, 112, 85, 0.25);
+}
+
+body.dark-mode .vim-toggle-label,
+body.dark-mode .theme-toggle-label {
+    color: #f2c38f;
+}
+
+body.dark-mode .vim-toggle-slider,
+body.dark-mode .theme-toggle-slider {
+    background: #523a24;
+}
+
+body.dark-mode .vim-toggle input:checked + .vim-toggle-slider {
+    background: #e17055;
+}
+
+body.dark-mode .theme-toggle input:checked + .theme-toggle-slider {
+    background: #d28d4f;
+}
+
+body.dark-mode #divider {
+    background: #523a24;
+}
+
+body.dark-mode #divider::before {
+    background: repeating-linear-gradient(
+        180deg,
+        #e0ab70 0px,
+        #e0ab70 3px,
+        transparent 3px,
+        transparent 7px
+    );
+}
+
+body.dark-mode #divider:hover,
+body.dark-mode #divider.dragging {
+    background: #e17055;
+}
+
+body.dark-mode .download-menu {
+    background: #1f150d;
+    border-color: #5f442a;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(225, 112, 85, 0.18);
+}
+
+body.dark-mode #preview-header .download-menu button {
+    color: #f4e6cc;
+}
+
+body.dark-mode #preview-header .download-menu button:hover {
+    background: #332315;
+    color: #ffe4bf;
+}
+
+body.dark-mode .download-menu button + button {
+    border-top-color: #5f442a;
+}
+
+body.dark-mode #preview {
+    background:
+        radial-gradient(circle at 22% 20%, rgba(225, 112, 85, 0.18) 0%, transparent 44%),
+        radial-gradient(circle at 78% 22%, rgba(242, 182, 97, 0.14) 0%, transparent 44%),
+        radial-gradient(circle at 52% 70%, rgba(160, 110, 68, 0.14) 0%, transparent 50%),
+        linear-gradient(180deg, #100b07, #15100b);
+}
+
+body.dark-mode #editor .cm-editor {
+    background: #130e0a;
+}
+
+body.dark-mode #editor .cm-gutters {
+    background: linear-gradient(90deg, #23180f, #15100c);
+    border-right-color: #4f3924;
+    color: #d9ad7b;
+}
+
+body.dark-mode #editor .cm-activeLineGutter {
+    background: #342416;
+    color: #ffd8a7;
+}
+
+body.dark-mode #editor .cm-activeLine {
+    background: rgba(197, 121, 63, 0.22);
+}
+
+body.dark-mode #editor .cm-cursor {
+    border-left-color: #f2b661;
+}
+
+body.dark-mode #editor .cm-selectionBackground {
+    background: rgba(167, 139, 250, 0.3) !important;
+}
+
+body.dark-mode #editor .cm-content {
+    color: #f4e6cc;
+    caret-color: #f2b661;
+}
+
+body.dark-mode .cm-tooltip-lint {
+    background: #1f150d !important;
+    color: #f4e6cc !important;
+    border-color: #5f442a !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
 }
