@@ -483,68 +483,68 @@ html, body {
 
 /* Dark mode */
 body.dark-mode {
-    background: #090909;
-    color: #e5e5e5;
+    background: #000000;
+    color: #f4e6cc;
 }
 
 body.dark-mode #accent-bar {
-    background: linear-gradient(90deg, #5a5a5a, #8c8c8c, #5a5a5a);
+    background: linear-gradient(90deg, #e17055, #fdcb6e, #74b9ff, #e17055);
 }
 
 body.dark-mode #editor-pane {
-    background: #0d0d0d;
-    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.6);
+    background: #050505;
+    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.65);
 }
 
 body.dark-mode #editor-header,
 body.dark-mode #preview-header {
-    background: linear-gradient(180deg, #1a1a1a, #111111);
-    border-bottom: 1px solid #2a2a2a;
-    color: #dddddd;
+    background: linear-gradient(180deg, #1a1208, #0b0b0b);
+    border-bottom: 1px solid #3a2a16;
+    color: #ffbd73;
 }
 
 body.dark-mode #editor-header button,
 body.dark-mode #preview-header button,
 body.dark-mode #expand-btn {
-    border-color: #3a3a3a;
-    color: #d4d4d4;
+    border-color: #4a3215;
+    color: #ffbd73;
 }
 
 body.dark-mode #editor-header button:hover,
 body.dark-mode #preview-header button:hover,
 body.dark-mode #expand-btn:hover {
-    background: #222222;
-    color: #f5f5f5;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    background: #2a1a06;
+    color: #ffe1b3;
+    box-shadow: 0 2px 8px rgba(225, 112, 85, 0.25);
 }
 
 body.dark-mode .vim-toggle-label,
 body.dark-mode .theme-toggle-label {
-    color: #cfcfcf;
+    color: #ffbd73;
 }
 
 body.dark-mode .vim-toggle-slider,
 body.dark-mode .theme-toggle-slider {
-    background: #4a4a4a;
+    background: #4a3215;
 }
 
 body.dark-mode .vim-toggle input:checked + .vim-toggle-slider {
-    background: #a3a3a3;
+    background: #e17055;
 }
 
 body.dark-mode .theme-toggle input:checked + .theme-toggle-slider {
-    background: #f5f5f5;
+    background: #74b9ff;
 }
 
 body.dark-mode #divider {
-    background: #2a2a2a;
+    background: #3a2a16;
 }
 
 body.dark-mode #divider::before {
     background: repeating-linear-gradient(
         180deg,
-        #666666 0px,
-        #666666 3px,
+        #c28a4a 0px,
+        #c28a4a 3px,
         transparent 3px,
         transparent 7px
     );
@@ -552,69 +552,71 @@ body.dark-mode #divider::before {
 
 body.dark-mode #divider:hover,
 body.dark-mode #divider.dragging {
-    background: #8c8c8c;
+    background: #e17055;
 }
 
 body.dark-mode .download-menu {
-    background: #161616;
-    border-color: #303030;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+    background: #120d08;
+    border-color: #4a3215;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(225, 112, 85, 0.18);
 }
 
 body.dark-mode #preview-header .download-menu button {
-    color: #e5e5e5;
+    color: #f4e6cc;
 }
 
 body.dark-mode #preview-header .download-menu button:hover {
-    background: #2a2a2a;
-    color: #ffffff;
+    background: #2a1a06;
+    color: #ffe1b3;
 }
 
 body.dark-mode .download-menu button + button {
-    border-top-color: #303030;
+    border-top-color: #4a3215;
 }
 
 body.dark-mode #preview {
     background:
-        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.09) 0%, transparent 72%),
-        linear-gradient(180deg, #060606, #0d0d0d);
+        radial-gradient(circle at 22% 20%, rgba(225, 112, 85, 0.16) 0%, transparent 42%),
+        radial-gradient(circle at 78% 24%, rgba(116, 185, 255, 0.14) 0%, transparent 40%),
+        radial-gradient(circle at 50% 65%, rgba(253, 203, 110, 0.1) 0%, transparent 48%),
+        linear-gradient(180deg, #000000, #050505);
 }
 
 body.dark-mode #editor .cm-editor {
-    background: #080808;
+    background: #000000;
 }
 
 body.dark-mode #editor .cm-gutters {
-    background: linear-gradient(90deg, #050505, #080808);
-    border-right-color: #2a2a2a;
-    color: #9ca3af;
+    background: linear-gradient(90deg, #0d0b16, #050505);
+    border-right-color: #312e81;
+    color: #93c5fd;
 }
 
 body.dark-mode #editor .cm-activeLineGutter {
-    background: #161616;
-    color: #d4d4d4;
+    background: #1e1b4b;
+    color: #c4b5fd;
 }
 
 body.dark-mode #editor .cm-activeLine {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(99, 102, 241, 0.16);
 }
 
 body.dark-mode #editor .cm-cursor {
-    border-left-color: #f5f5f5;
+    border-left-color: #a78bfa;
 }
 
 body.dark-mode #editor .cm-selectionBackground {
-    background: rgba(245, 245, 245, 0.18) !important;
+    background: rgba(139, 92, 246, 0.3) !important;
 }
 
 body.dark-mode #editor .cm-content {
-    color: #e5e5e5;
-    caret-color: #f5f5f5;
+    color: #ddd6fe;
+    caret-color: #a78bfa;
 }
 
 body.dark-mode .cm-tooltip-lint {
-    background: #111111 !important;
-    color: #e5e5e5 !important;
-    border-color: #2a2a2a !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55) !important;
+    background: #120d08 !important;
+    color: #f4e6cc !important;
+    border-color: #4a3215 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
 }

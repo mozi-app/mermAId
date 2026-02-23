@@ -51,6 +51,10 @@ class MockStream {
         return this.string.slice(this.start, this.pos);
     }
 
+    sol() {
+        return this.pos === 0;
+    }
+
     eol() {
         return this.pos >= this.string.length;
     }
@@ -202,5 +206,83 @@ describe('mermaidStreamParser', () => {
     it('advances past unrecognized characters', () => {
         const tokens = tokenize('#');
         expect(tokens).toEqual([{ text: '#', type: null }]);
+    });
+
+    it('recognizes flowchart and graph keywords', () => {
+        for (const kw of ['graph', 'flowchart', 'subgraph', 'classDef', 'style',
+            'class', 'click', 'linkStyle', 'direction', 'classDiagram',
+            'stateDiagram', 'state', 'erDiagram', 'gantt', 'pie', 'gitGraph',
+            'mindmap', 'journey']) {
+            const tokens = tokenize(kw);
+            expect(tokens).toEqual([{ text: kw, type: 'keyword' }]);
+        }
+    });
+
+    it('recognizes hex colors as atom', () => {
+        const tokens = tokenize('#e8f1ff');
+        expect(tokens).toEqual([{ text: '#e8f1ff', type: 'atom' }]);
+    });
+
+    it('recognizes short hex colors', () => {
+        const tokens = tokenize('#fff');
+        expect(tokens).toEqual([{ text: '#fff', type: 'atom' }]);
+    });
+
+    it('does not treat # alone as a hex color', () => {
+        const tokens = tokenize('#');
+        expect(tokens).toEqual([{ text: '#', type: null }]);
+    });
+
+    it('tokenizes classDef line with style properties', () => {
+        const lines = tokenizeLines(['classDef user fill:#e8f1ff,stroke:#4a78c2']);
+        expect(lines[0]).toEqual([
+            { text: 'classDef', type: 'keyword' },
+            { text: ' ', type: null },
+            { text: 'user', type: 'variableName' },
+            { text: ' ', type: null },
+            { text: 'fill', type: 'variableName' },
+            { text: ':', type: 'punctuation' },
+            { text: '#e8f1ff', type: 'atom' },
+            { text: ',', type: null },
+            { text: 'stroke', type: 'variableName' },
+            { text: ':', type: 'punctuation' },
+            { text: '#4a78c2', type: 'atom' },
+        ]);
+    });
+
+    it('tokenizes style line without entering string mode', () => {
+        const lines = tokenizeLines(['style A fill:#f9f,stroke-width:2px']);
+        expect(lines[0]).toEqual([
+            { text: 'style', type: 'keyword' },
+            { text: ' ', type: null },
+            { text: 'A', type: 'variableName' },
+            { text: ' ', type: null },
+            { text: 'fill', type: 'variableName' },
+            { text: ':', type: 'punctuation' },
+            { text: '#f9f', type: 'atom' },
+            { text: ',', type: null },
+            { text: 'stroke', type: 'variableName' },
+            { text: '-', type: null },
+            { text: 'width', type: 'variableName' },
+            { text: ':', type: 'punctuation' },
+            { text: '2', type: 'number' },
+            { text: 'px', type: 'variableName' },
+        ]);
+    });
+
+    it('resets inStyleDef at line boundaries', () => {
+        // After a classDef line, the next line should treat colons normally
+        const lines = tokenizeLines([
+            'classDef user fill:#e8f1ff',
+            'Alice->>Bob: Hello',
+        ]);
+        expect(lines[1]).toEqual([
+            { text: 'Alice', type: 'variableName' },
+            { text: '->>', type: 'operator' },
+            { text: 'Bob', type: 'variableName' },
+            { text: ':', type: 'punctuation' },
+            { text: ' ', type: null },
+            { text: 'Hello', type: 'string' },
+        ]);
     });
 });
