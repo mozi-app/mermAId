@@ -93,15 +93,35 @@ function createSvgPanZoom(svgEl) {
     let isPanning = false;
     let start = { x: 0, y: 0 };
     let startVB = { x: 0, y: 0 };
+    const minScale = 0.02;
+    const maxScale = 50;
+    const wheelDeltaLimit = 240;
+    const wheelZoomDivisor = 1200;
 
     const onWheel = (e) => {
         e.preventDefault();
-        const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
         const rect = svgEl.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const modeScale = e.deltaMode === 1 ? 40 : (e.deltaMode === 2 ? rect.height : 1);
+        let normalizedDelta = e.deltaY * modeScale;
+        if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
+        normalizedDelta = Math.max(-wheelDeltaLimit, Math.min(wheelDeltaLimit, normalizedDelta));
+
+        const factor = Math.pow(2, normalizedDelta / wheelZoomDivisor);
         const mx = (e.clientX - rect.left) / rect.width;
         const my = (e.clientY - rect.top) / rect.height;
-        const newW = vb.width * factor;
-        const newH = vb.height * factor;
+        const targetW = vb.width * factor;
+        const targetH = vb.height * factor;
+        const minW = orig.width * minScale;
+        const maxW = orig.width * maxScale;
+        const minH = orig.height * minScale;
+        const maxH = orig.height * maxScale;
+        const newW = Math.min(maxW, Math.max(minW, targetW));
+        const newH = Math.min(maxH, Math.max(minH, targetH));
+
+        if (newW === vb.width && newH === vb.height) return;
+
         vb.x += (vb.width - newW) * mx;
         vb.y += (vb.height - newH) * my;
         vb.width = newW;
