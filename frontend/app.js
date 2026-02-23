@@ -84,6 +84,7 @@ const STARTER_DIAGRAM = '';
 function createSvgPanZoom(svgEl) {
     const vb = svgEl.viewBox.baseVal;
     const orig = { x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+    const wheelTarget = svgEl.parentElement || svgEl;
 
     // Make SVG fill its container; viewBox controls what's visible
     svgEl.setAttribute('width', '100%');
@@ -96,21 +97,14 @@ function createSvgPanZoom(svgEl) {
     const minScale = 0.02;
     const maxScale = 50;
     const wheelDeltaLimit = 240;
-    const wheelZoomDivisor = 1200;
+    const wheelZoomDivisor = 480;
+    const pendingWheelDeltaLimit = wheelDeltaLimit * 4;
+    let pendingWheelDelta = 0;
+    let pendingWheelAnchor = { mx: 0.5, my: 0.5 };
+    let wheelFrameId = 0;
 
-    const onWheel = (e) => {
-        e.preventDefault();
-        const rect = svgEl.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-
-        const modeScale = e.deltaMode === 1 ? 40 : (e.deltaMode === 2 ? rect.height : 1);
-        let normalizedDelta = e.deltaY * modeScale;
-        if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
-        normalizedDelta = Math.max(-wheelDeltaLimit, Math.min(wheelDeltaLimit, normalizedDelta));
-
-        const factor = Math.pow(2, normalizedDelta / wheelZoomDivisor);
-        const mx = (e.clientX - rect.left) / rect.width;
-        const my = (e.clientY - rect.top) / rect.height;
+    const applyWheelZoom = (delta, mx, my) => {
+        const factor = Math.pow(2, delta / wheelZoomDivisor);
         const targetW = vb.width * factor;
         const targetH = vb.height * factor;
         const minW = orig.width * minScale;
@@ -126,6 +120,48 @@ function createSvgPanZoom(svgEl) {
         vb.y += (vb.height - newH) * my;
         vb.width = newW;
         vb.height = newH;
+    };
+
+    const flushPendingWheelZoom = () => {
+        wheelFrameId = 0;
+        if (pendingWheelDelta === 0) return;
+
+        const delta = pendingWheelDelta;
+        const { mx, my } = pendingWheelAnchor;
+        pendingWheelDelta = 0;
+        applyWheelZoom(delta, mx, my);
+
+        if (pendingWheelDelta !== 0) {
+            wheelFrameId = requestAnimationFrame(flushPendingWheelZoom);
+        }
+    };
+
+    const onWheel = (e) => {
+        e.preventDefault();
+        const rect = svgEl.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const modeScale = e.deltaMode === 1 ? 40 : (e.deltaMode === 2 ? rect.height : 1);
+        let normalizedDelta = e.deltaY * modeScale;
+        if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
+        normalizedDelta = Math.max(-wheelDeltaLimit, Math.min(wheelDeltaLimit, normalizedDelta));
+
+        const mx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const my = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+        pendingWheelAnchor = { mx, my };
+
+        // Apply first event immediately so new zoom gestures always feel responsive.
+        if (wheelFrameId === 0 && pendingWheelDelta === 0) {
+            applyWheelZoom(normalizedDelta, mx, my);
+            wheelFrameId = requestAnimationFrame(flushPendingWheelZoom);
+            return;
+        }
+
+        pendingWheelDelta += normalizedDelta;
+        pendingWheelDelta = Math.max(-pendingWheelDeltaLimit, Math.min(pendingWheelDeltaLimit, pendingWheelDelta));
+        if (wheelFrameId === 0) {
+            wheelFrameId = requestAnimationFrame(flushPendingWheelZoom);
+        }
     };
 
     const onMouseDown = (e) => {
@@ -150,7 +186,7 @@ function createSvgPanZoom(svgEl) {
         svgEl.style.cursor = 'grab';
     };
 
-    svgEl.addEventListener('wheel', onWheel, { passive: false });
+    wheelTarget.addEventListener('wheel', onWheel, { passive: false });
     svgEl.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
@@ -175,10 +211,14 @@ function createSvgPanZoom(svgEl) {
             vb.height = orig.height;
         },
         dispose() {
-            svgEl.removeEventListener('wheel', onWheel);
+            wheelTarget.removeEventListener('wheel', onWheel);
             svgEl.removeEventListener('mousedown', onMouseDown);
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
+            if (wheelFrameId !== 0) {
+                cancelAnimationFrame(wheelFrameId);
+                wheelFrameId = 0;
+            }
         },
     };
 }
