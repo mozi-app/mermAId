@@ -169,6 +169,10 @@ let debounceTimer = null;
 let syncTimer = null;
 let renderCounter = 0;
 let isExternalUpdate = false;
+let latestServerVersion = 0;
+let evtSource = null;
+let resyncInFlight = null;
+let foregroundRecoveryTimer = null;
 
 // DOM elements
 const container = document.getElementById('container');
@@ -497,30 +501,70 @@ function scheduleSyncToServer() {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content, source: 'browser' }),
+        }).then(r => {
+            if (!r.ok) return null;
+            return r.json();
+        }).then(data => {
+            if (!data || typeof data.version !== 'number') return;
+            latestServerVersion = Math.max(latestServerVersion, data.version);
         }).catch(() => {
             // Server unavailable — ignore
         });
     }, 300);
 }
 
+function applyServerContent(content, version) {
+    if (typeof version === 'number') {
+        latestServerVersion = Math.max(latestServerVersion, version);
+    }
+
+    const formattedContent = prettyPrintMermaidForEditor(content || '');
+    const currentContent = editor.state.doc.toString();
+    if (formattedContent === currentContent) return;
+
+    isExternalUpdate = true;
+    editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
+    });
+    isExternalUpdate = false;
+}
+
+function resyncFromServer() {
+    if (resyncInFlight) return resyncInFlight;
+
+    resyncInFlight = fetch('/api/diagram')
+        .then(r => r.json())
+        .then(({ content, version }) => {
+            if (typeof version === 'number' && version <= latestServerVersion) return;
+            applyServerContent(content, version);
+        })
+        .catch(() => {
+            // Server unavailable — ignore
+        })
+        .finally(() => {
+            resyncInFlight = null;
+        });
+
+    return resyncInFlight;
+}
+
+function disconnectSSE() {
+    if (!evtSource) return;
+    evtSource.close();
+    evtSource = null;
+}
+
 // Connect to SSE for live updates from external sources (e.g. MCP)
 function connectSSE() {
-    const evtSource = new EventSource('/api/events');
+    disconnectSSE();
+    evtSource = new EventSource('/api/events');
 
     evtSource.onmessage = (e) => {
         try {
             const event = JSON.parse(e.data);
             if (event.source === 'browser') return; // Ignore our own changes
-
-            const formattedContent = prettyPrintMermaidForEditor(event.content);
-            const currentContent = editor.state.doc.toString();
-            if (formattedContent === currentContent) return; // Already in sync
-
-            isExternalUpdate = true;
-            editor.dispatch({
-                changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
-            });
-            isExternalUpdate = false;
+            if (typeof event.version === 'number' && event.version <= latestServerVersion) return;
+            applyServerContent(event.content, event.version);
         } catch {
             // Ignore malformed events
         }
@@ -531,7 +575,21 @@ function connectSSE() {
     };
 }
 
+function recoverFromBackground() {
+    clearTimeout(foregroundRecoveryTimer);
+    foregroundRecoveryTimer = setTimeout(() => {
+        connectSSE();
+        resyncFromServer();
+    }, 50);
+}
+
 connectSSE();
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        recoverFromBackground();
+    }
+});
+window.addEventListener('focus', recoverFromBackground);
 
 // Auto-enter insert mode on paste when in vim normal mode
 editor.dom.addEventListener('paste', () => {
@@ -543,17 +601,8 @@ editor.dom.addEventListener('paste', () => {
 }, true);
 
 // Initial load: fetch current diagram from server (may have been set via CLI arg)
-fetch('/api/diagram')
-    .then(r => r.json())
-    .then(({ content }) => {
-        if (content) {
-            const formattedContent = prettyPrintMermaidForEditor(content);
-            isExternalUpdate = true;
-            editor.dispatch({
-                changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
-            });
-            isExternalUpdate = false;
-        }
+resyncFromServer()
+    .then(() => {
         renderDiagram(editor.state.doc.toString());
     })
     .catch(() => {
