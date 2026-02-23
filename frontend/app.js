@@ -84,6 +84,7 @@ const STARTER_DIAGRAM = '';
 function createSvgPanZoom(svgEl) {
     const vb = svgEl.viewBox.baseVal;
     const orig = { x: vb.x, y: vb.y, width: vb.width, height: vb.height };
+    const wheelTarget = svgEl.parentElement || svgEl;
 
     // Make SVG fill its container; viewBox controls what's visible
     svgEl.setAttribute('width', '100%');
@@ -93,19 +94,74 @@ function createSvgPanZoom(svgEl) {
     let isPanning = false;
     let start = { x: 0, y: 0 };
     let startVB = { x: 0, y: 0 };
+    const minScale = 0.02;
+    const maxScale = 50;
+    const wheelDeltaLimit = 240;
+    const wheelZoomDivisor = 480;
+    const pendingWheelDeltaLimit = wheelDeltaLimit * 4;
+    let pendingWheelDelta = 0;
+    let pendingWheelAnchor = { mx: 0.5, my: 0.5 };
+    let wheelFrameId = 0;
 
-    const onWheel = (e) => {
-        e.preventDefault();
-        const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
-        const rect = svgEl.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) / rect.width;
-        const my = (e.clientY - rect.top) / rect.height;
-        const newW = vb.width * factor;
-        const newH = vb.height * factor;
+    const applyWheelZoom = (delta, mx, my) => {
+        const factor = Math.pow(2, delta / wheelZoomDivisor);
+        const targetW = vb.width * factor;
+        const targetH = vb.height * factor;
+        const minW = orig.width * minScale;
+        const maxW = orig.width * maxScale;
+        const minH = orig.height * minScale;
+        const maxH = orig.height * maxScale;
+        const newW = Math.min(maxW, Math.max(minW, targetW));
+        const newH = Math.min(maxH, Math.max(minH, targetH));
+
+        if (newW === vb.width && newH === vb.height) return;
+
         vb.x += (vb.width - newW) * mx;
         vb.y += (vb.height - newH) * my;
         vb.width = newW;
         vb.height = newH;
+    };
+
+    const flushPendingWheelZoom = () => {
+        wheelFrameId = 0;
+        if (pendingWheelDelta === 0) return;
+
+        const delta = pendingWheelDelta;
+        const { mx, my } = pendingWheelAnchor;
+        pendingWheelDelta = 0;
+        applyWheelZoom(delta, mx, my);
+
+        if (pendingWheelDelta !== 0) {
+            wheelFrameId = requestAnimationFrame(flushPendingWheelZoom);
+        }
+    };
+
+    const onWheel = (e) => {
+        e.preventDefault();
+        const rect = svgEl.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const modeScale = e.deltaMode === 1 ? 40 : (e.deltaMode === 2 ? rect.height : 1);
+        let normalizedDelta = e.deltaY * modeScale;
+        if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) return;
+        normalizedDelta = Math.max(-wheelDeltaLimit, Math.min(wheelDeltaLimit, normalizedDelta));
+
+        const mx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const my = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+        pendingWheelAnchor = { mx, my };
+
+        // Apply first event immediately so new zoom gestures always feel responsive.
+        if (wheelFrameId === 0 && pendingWheelDelta === 0) {
+            applyWheelZoom(normalizedDelta, mx, my);
+            wheelFrameId = requestAnimationFrame(flushPendingWheelZoom);
+            return;
+        }
+
+        pendingWheelDelta += normalizedDelta;
+        pendingWheelDelta = Math.max(-pendingWheelDeltaLimit, Math.min(pendingWheelDeltaLimit, pendingWheelDelta));
+        if (wheelFrameId === 0) {
+            wheelFrameId = requestAnimationFrame(flushPendingWheelZoom);
+        }
     };
 
     const onMouseDown = (e) => {
@@ -130,7 +186,7 @@ function createSvgPanZoom(svgEl) {
         svgEl.style.cursor = 'grab';
     };
 
-    svgEl.addEventListener('wheel', onWheel, { passive: false });
+    wheelTarget.addEventListener('wheel', onWheel, { passive: false });
     svgEl.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
@@ -155,10 +211,14 @@ function createSvgPanZoom(svgEl) {
             vb.height = orig.height;
         },
         dispose() {
-            svgEl.removeEventListener('wheel', onWheel);
+            wheelTarget.removeEventListener('wheel', onWheel);
             svgEl.removeEventListener('mousedown', onMouseDown);
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
+            if (wheelFrameId !== 0) {
+                cancelAnimationFrame(wheelFrameId);
+                wheelFrameId = 0;
+            }
         },
     };
 }
@@ -169,6 +229,10 @@ let debounceTimer = null;
 let syncTimer = null;
 let renderCounter = 0;
 let isExternalUpdate = false;
+let latestServerVersion = 0;
+let evtSource = null;
+let resyncInFlight = null;
+let foregroundRecoveryTimer = null;
 
 // DOM elements
 const container = document.getElementById('container');
@@ -497,30 +561,70 @@ function scheduleSyncToServer() {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content, source: 'browser' }),
+        }).then(r => {
+            if (!r.ok) return null;
+            return r.json();
+        }).then(data => {
+            if (!data || typeof data.version !== 'number') return;
+            latestServerVersion = Math.max(latestServerVersion, data.version);
         }).catch(() => {
             // Server unavailable — ignore
         });
     }, 300);
 }
 
+function applyServerContent(content, version) {
+    if (typeof version === 'number') {
+        latestServerVersion = Math.max(latestServerVersion, version);
+    }
+
+    const formattedContent = prettyPrintMermaidForEditor(content || '');
+    const currentContent = editor.state.doc.toString();
+    if (formattedContent === currentContent) return;
+
+    isExternalUpdate = true;
+    editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
+    });
+    isExternalUpdate = false;
+}
+
+function resyncFromServer() {
+    if (resyncInFlight) return resyncInFlight;
+
+    resyncInFlight = fetch('/api/diagram')
+        .then(r => r.json())
+        .then(({ content, version }) => {
+            if (typeof version === 'number' && version <= latestServerVersion) return;
+            applyServerContent(content, version);
+        })
+        .catch(() => {
+            // Server unavailable — ignore
+        })
+        .finally(() => {
+            resyncInFlight = null;
+        });
+
+    return resyncInFlight;
+}
+
+function disconnectSSE() {
+    if (!evtSource) return;
+    evtSource.close();
+    evtSource = null;
+}
+
 // Connect to SSE for live updates from external sources (e.g. MCP)
 function connectSSE() {
-    const evtSource = new EventSource('/api/events');
+    disconnectSSE();
+    evtSource = new EventSource('/api/events');
 
     evtSource.onmessage = (e) => {
         try {
             const event = JSON.parse(e.data);
             if (event.source === 'browser') return; // Ignore our own changes
-
-            const formattedContent = prettyPrintMermaidForEditor(event.content);
-            const currentContent = editor.state.doc.toString();
-            if (formattedContent === currentContent) return; // Already in sync
-
-            isExternalUpdate = true;
-            editor.dispatch({
-                changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
-            });
-            isExternalUpdate = false;
+            if (typeof event.version === 'number' && event.version <= latestServerVersion) return;
+            applyServerContent(event.content, event.version);
         } catch {
             // Ignore malformed events
         }
@@ -531,7 +635,21 @@ function connectSSE() {
     };
 }
 
+function recoverFromBackground() {
+    clearTimeout(foregroundRecoveryTimer);
+    foregroundRecoveryTimer = setTimeout(() => {
+        connectSSE();
+        resyncFromServer();
+    }, 50);
+}
+
 connectSSE();
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        recoverFromBackground();
+    }
+});
+window.addEventListener('focus', recoverFromBackground);
 
 // Auto-enter insert mode on paste when in vim normal mode
 editor.dom.addEventListener('paste', () => {
@@ -543,17 +661,8 @@ editor.dom.addEventListener('paste', () => {
 }, true);
 
 // Initial load: fetch current diagram from server (may have been set via CLI arg)
-fetch('/api/diagram')
-    .then(r => r.json())
-    .then(({ content }) => {
-        if (content) {
-            const formattedContent = prettyPrintMermaidForEditor(content);
-            isExternalUpdate = true;
-            editor.dispatch({
-                changes: { from: 0, to: editor.state.doc.length, insert: formattedContent },
-            });
-            isExternalUpdate = false;
-        }
+resyncFromServer()
+    .then(() => {
         renderDiagram(editor.state.doc.toString());
     })
     .catch(() => {
