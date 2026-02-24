@@ -11,7 +11,10 @@ the agent, iterate, rinse and repeat.
 The editor runs as a small Go server on localhost with a split-pane UI: a
 CodeMirror text editor on the left and a live Mermaid preview on the right.
 
-![Split-pane editor with code on the left and rendered diagram on the right](images/editor-ui.png)
+<p>
+  <img src="images/editor-ui-light.png" alt="Split-pane editor in light mode with code on the left and rendered diagram on the right" width="49%" />
+  <img src="images/editor-ui-dark.png" alt="Split-pane editor in dark mode with code on the left and rendered diagram on the right" width="49%" />
+</p>
 
 AI agents interact with the editor via MCP or CLI to generate and update
 diagrams programmatically.
