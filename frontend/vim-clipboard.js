@@ -43,3 +43,16 @@ export async function syncSystemClipboardToUnnamedRegister(VimApi, clipboard = g
         return false;
     }
 }
+
+export async function pasteFromSystemClipboard(VimApi, cm, key, clipboard = globalThis.navigator?.clipboard) {
+    if (key !== 'p' && key !== 'P') {
+        return false;
+    }
+    if (!VimApi || typeof VimApi.handleKey !== 'function') {
+        return false;
+    }
+
+    await syncSystemClipboardToUnnamedRegister(VimApi, clipboard);
+    VimApi.handleKey(cm, key, 'user');
+    return true;
+}

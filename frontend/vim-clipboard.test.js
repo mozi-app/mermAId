@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { installYankClipboardSync, syncSystemClipboardToUnnamedRegister } from './vim-clipboard.js';
+import { installYankClipboardSync, syncSystemClipboardToUnnamedRegister, pasteFromSystemClipboard } from './vim-clipboard.js';
 
 describe('installYankClipboardSync', () => {
     it('wraps pushText and mirrors yanks to clipboard', () => {
@@ -111,5 +111,49 @@ describe('syncSystemClipboardToUnnamedRegister', () => {
         const VimApi = { getRegisterController: () => registerController };
         await expect(syncSystemClipboardToUnnamedRegister(VimApi, null)).resolves.toBe(false);
         expect(unnamedRegister.setText).not.toHaveBeenCalled();
+    });
+});
+
+describe('pasteFromSystemClipboard', () => {
+    it('syncs clipboard then dispatches a Vim paste key', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const VimApi = {
+            getRegisterController: () => ({
+                getRegister: () => unnamedRegister,
+                unnamedRegister,
+            }),
+            handleKey: vi.fn(),
+        };
+        const clipboard = { readText: vi.fn(async () => 'clip text') };
+        const cm = { state: { vim: { insertMode: false } } };
+
+        await expect(pasteFromSystemClipboard(VimApi, cm, 'p', clipboard)).resolves.toBe(true);
+        expect(unnamedRegister.setText).toHaveBeenCalledWith('clip text', false, false);
+        expect(VimApi.handleKey).toHaveBeenCalledWith(cm, 'p', 'user');
+    });
+
+    it('still dispatches paste when clipboard read fails', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const VimApi = {
+            getRegisterController: () => ({
+                getRegister: () => unnamedRegister,
+                unnamedRegister,
+            }),
+            handleKey: vi.fn(),
+        };
+        const clipboard = { readText: vi.fn(async () => { throw new Error('denied'); }) };
+        const cm = {};
+
+        await expect(pasteFromSystemClipboard(VimApi, cm, 'P', clipboard)).resolves.toBe(true);
+        expect(unnamedRegister.setText).not.toHaveBeenCalled();
+        expect(VimApi.handleKey).toHaveBeenCalledWith(cm, 'P', 'user');
+    });
+
+    it('returns false for unsupported keys', async () => {
+        const VimApi = { handleKey: vi.fn() };
+        const cm = {};
+
+        await expect(pasteFromSystemClipboard(VimApi, cm, 'x')).resolves.toBe(false);
+        expect(VimApi.handleKey).not.toHaveBeenCalled();
     });
 });
