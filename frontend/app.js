@@ -29,11 +29,15 @@ import { indentWithTab } from '@codemirror/commands';
 import mermaid from 'mermaid';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
 import { prettyPrintMermaidForEditor } from './format.js';
+import { installYankClipboardSync, installSystemClipboardPasteBindings } from './vim-clipboard.js';
 
 // Register :q to quit the app
 Vim.defineEx('quit', 'q', () => {
     fetch('/api/quit', { method: 'POST' });
 });
+
+installYankClipboardSync(Vim);
+installSystemClipboardPasteBindings(Vim);
 
 // Vim mode preference
 const vimCompartment = new Compartment();
