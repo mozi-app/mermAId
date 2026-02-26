@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { installYankClipboardSync, installSystemClipboardPasteBindings } from './vim-clipboard.js';
+import { installYankClipboardSync, syncSystemClipboardToUnnamedRegister } from './vim-clipboard.js';
 
 describe('installYankClipboardSync', () => {
     it('wraps pushText and mirrors yanks to clipboard', () => {
@@ -68,25 +68,48 @@ describe('installYankClipboardSync', () => {
     });
 });
 
-describe('installSystemClipboardPasteBindings', () => {
-    it('maps p/P in normal and visual mode to the + register', () => {
-        const VimApi = { noremap: vi.fn() };
+describe('syncSystemClipboardToUnnamedRegister', () => {
+    it('loads system clipboard text into the unnamed register', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const registerController = {
+            getRegister: vi.fn(() => unnamedRegister),
+            unnamedRegister,
+        };
+        const VimApi = { getRegisterController: () => registerController };
+        const clipboard = { readText: vi.fn(async () => 'outside text') };
 
-        expect(installSystemClipboardPasteBindings(VimApi)).toBe(true);
-        expect(VimApi.noremap.mock.calls).toEqual([
-            ['p', '"+p', 'normal'],
-            ['P', '"+P', 'normal'],
-            ['p', '"+p', 'visual'],
-            ['P', '"+P', 'visual'],
-        ]);
-        expect(VimApi._systemClipboardPasteBindingsInstalled).toBe(true);
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, clipboard)).resolves.toBe(true);
+        expect(registerController.getRegister).toHaveBeenCalledWith('"');
+        expect(clipboard.readText).toHaveBeenCalledTimes(1);
+        expect(unnamedRegister.setText).toHaveBeenCalledWith('outside text', false, false);
     });
 
-    it('is idempotent when installed multiple times', () => {
-        const VimApi = { noremap: vi.fn() };
+    it('returns false when clipboard read fails', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const registerController = {
+            getRegister: vi.fn(() => unnamedRegister),
+            unnamedRegister,
+        };
+        const VimApi = { getRegisterController: () => registerController };
+        const clipboard = { readText: vi.fn(async () => { throw new Error('denied'); }) };
 
-        expect(installSystemClipboardPasteBindings(VimApi)).toBe(true);
-        expect(installSystemClipboardPasteBindings(VimApi)).toBe(false);
-        expect(VimApi.noremap).toHaveBeenCalledTimes(4);
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, clipboard)).resolves.toBe(false);
+        expect(unnamedRegister.setText).not.toHaveBeenCalled();
+    });
+
+    it('returns false when register controller is unavailable', async () => {
+        const clipboard = { readText: vi.fn(async () => 'outside text') };
+        await expect(syncSystemClipboardToUnnamedRegister({}, clipboard)).resolves.toBe(false);
+    });
+
+    it('returns false when clipboard api is unavailable', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const registerController = {
+            getRegister: vi.fn(() => unnamedRegister),
+            unnamedRegister,
+        };
+        const VimApi = { getRegisterController: () => registerController };
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, null)).resolves.toBe(false);
+        expect(unnamedRegister.setText).not.toHaveBeenCalled();
     });
 });

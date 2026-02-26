@@ -21,16 +21,25 @@ export function installYankClipboardSync(VimApi, clipboard = globalThis.navigato
     return true;
 }
 
-export function installSystemClipboardPasteBindings(VimApi) {
-    if (!VimApi || VimApi._systemClipboardPasteBindingsInstalled) {
+export async function syncSystemClipboardToUnnamedRegister(VimApi, clipboard = globalThis.navigator?.clipboard) {
+    const registerController = VimApi?.getRegisterController?.();
+    if (!registerController || !clipboard || typeof clipboard.readText !== 'function') {
         return false;
     }
 
-    // Use non-recursive mappings so `p -> "+p` doesn't loop.
-    VimApi.noremap('p', '"+p', 'normal');
-    VimApi.noremap('P', '"+P', 'normal');
-    VimApi.noremap('p', '"+p', 'visual');
-    VimApi.noremap('P', '"+P', 'visual');
-    VimApi._systemClipboardPasteBindingsInstalled = true;
-    return true;
+    const unnamedRegister = registerController.getRegister?.('"') || registerController.unnamedRegister;
+    if (!unnamedRegister || typeof unnamedRegister.setText !== 'function') {
+        return false;
+    }
+
+    try {
+        const text = await clipboard.readText();
+        if (typeof text !== 'string') {
+            return false;
+        }
+        unnamedRegister.setText(text, false, false);
+        return true;
+    } catch {
+        return false;
+    }
 }

@@ -29,7 +29,7 @@ import { indentWithTab } from '@codemirror/commands';
 import mermaid from 'mermaid';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
 import { prettyPrintMermaidForEditor } from './format.js';
-import { installYankClipboardSync } from './vim-clipboard.js';
+import { installYankClipboardSync, syncSystemClipboardToUnnamedRegister } from './vim-clipboard.js';
 
 // Register :q to quit the app
 Vim.defineEx('quit', 'q', () => {
@@ -37,6 +37,12 @@ Vim.defineEx('quit', 'q', () => {
 });
 
 installYankClipboardSync(Vim);
+
+function syncClipboardForVimPaste() {
+    syncSystemClipboardToUnnamedRegister(Vim).catch(() => {});
+}
+
+syncClipboardForVimPaste();
 
 // Vim mode preference
 const vimCompartment = new Compartment();
@@ -359,6 +365,8 @@ const editor = new EditorView({
     }),
     parent: editorEl,
 });
+
+editor.dom.addEventListener('focusin', syncClipboardForVimPaste);
 
 function applyTheme(isDark) {
     themeToggle.checked = isDark;
@@ -718,6 +726,7 @@ function recoverFromBackground() {
     foregroundRecoveryTimer = setTimeout(() => {
         connectSSE();
         resyncFromServer();
+        syncClipboardForVimPaste();
     }, 50);
 }
 
