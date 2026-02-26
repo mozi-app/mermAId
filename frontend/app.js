@@ -29,7 +29,7 @@ import { indentWithTab } from '@codemirror/commands';
 import mermaid from 'mermaid';
 import { mermaidLanguage, mermaidLinter } from './editor.js';
 import { prettyPrintMermaidForEditor } from './format.js';
-import { installYankClipboardSync, installSystemClipboardPasteBindings } from './vim-clipboard.js';
+import { installYankClipboardSync } from './vim-clipboard.js';
 
 // Register :q to quit the app
 Vim.defineEx('quit', 'q', () => {
@@ -37,7 +37,6 @@ Vim.defineEx('quit', 'q', () => {
 });
 
 installYankClipboardSync(Vim);
-installSystemClipboardPasteBindings(Vim);
 
 // Vim mode preference
 const vimCompartment = new Compartment();
