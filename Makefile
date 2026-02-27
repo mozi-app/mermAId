@@ -20,7 +20,7 @@ all: build #: Build everything
 node_modules: package.json
 	npm install
 
-static/bundle.js: node_modules frontend/app.js frontend/editor.js
+static/bundle.js: node_modules $(wildcard frontend/*.js)
 	npx esbuild frontend/app.js \
 		--bundle \
 		--format=iife \
