@@ -104,6 +104,36 @@ describe('syncSystemClipboardToUnnamedRegister', () => {
         expect(unnamedRegister.setText).toHaveBeenCalledWith('web text', false, false);
     });
 
+    it('falls back to web clipboard when native payload is malformed', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const registerController = {
+            getRegister: vi.fn(() => unnamedRegister),
+            unnamedRegister,
+        };
+        const VimApi = { getRegisterController: () => registerController };
+        const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+        const clipboard = { readText: vi.fn(async () => 'web text') };
+
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, { clipboard, fetchImpl })).resolves.toBe(true);
+        expect(clipboard.readText).toHaveBeenCalledTimes(1);
+        expect(unnamedRegister.setText).toHaveBeenCalledWith('web text', false, false);
+    });
+
+    it('falls back to web clipboard when native fetch throws', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const registerController = {
+            getRegister: vi.fn(() => unnamedRegister),
+            unnamedRegister,
+        };
+        const VimApi = { getRegisterController: () => registerController };
+        const fetchImpl = vi.fn(async () => { throw new Error('network'); });
+        const clipboard = { readText: vi.fn(async () => 'web text') };
+
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, { clipboard, fetchImpl })).resolves.toBe(true);
+        expect(clipboard.readText).toHaveBeenCalledTimes(1);
+        expect(unnamedRegister.setText).toHaveBeenCalledWith('web text', false, false);
+    });
+
     it('returns false when native and web clipboard reads fail', async () => {
         const unnamedRegister = { setText: vi.fn() };
         const registerController = {
@@ -153,6 +183,25 @@ describe('pasteFromSystemClipboard', () => {
 
         await expect(pasteFromSystemClipboard(VimApi, cm, 'p', { clipboard, fetchImpl })).resolves.toBe(true);
         expect(unnamedRegister.setText).toHaveBeenCalledWith('clip text', false, false);
+        expect(VimApi.handleKey).toHaveBeenCalledWith(cm, 'p', 'user');
+    });
+
+    it('uses native clipboard for paste when available', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const VimApi = {
+            getRegisterController: () => ({
+                getRegister: () => unnamedRegister,
+                unnamedRegister,
+            }),
+            handleKey: vi.fn(),
+        };
+        const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ text: 'native text' }) }));
+        const clipboard = { readText: vi.fn(async () => 'web text') };
+        const cm = {};
+
+        await expect(pasteFromSystemClipboard(VimApi, cm, 'p', { clipboard, fetchImpl })).resolves.toBe(true);
+        expect(clipboard.readText).not.toHaveBeenCalled();
+        expect(unnamedRegister.setText).toHaveBeenCalledWith('native text', false, false);
         expect(VimApi.handleKey).toHaveBeenCalledWith(cm, 'p', 'user');
     });
 
