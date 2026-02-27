@@ -4,11 +4,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 )
+
+var errNativeClipboardUnavailable = errors.New("native clipboard unavailable")
+
+func getNativeClipboardText() (string, error) {
+	return "", errNativeClipboardUnavailable
+}
 
 func handleFocus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)

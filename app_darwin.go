@@ -11,6 +11,7 @@ package main
 void runApp(const char *url);
 void terminateApp(void);
 void focusApp(void);
+char *getClipboardText(void);
 */
 import "C"
 
@@ -37,6 +38,15 @@ func goOpenBrowser() {
 func handleFocus(w http.ResponseWriter, r *http.Request) {
 	C.focusApp()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func getNativeClipboardText() (string, error) {
+	text := C.getClipboardText()
+	if text == nil {
+		return "", nil
+	}
+	defer C.free(unsafe.Pointer(text))
+	return C.GoString(text), nil
 }
 
 func maybeFocusApp() {

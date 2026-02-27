@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -274,6 +275,43 @@ func TestStateFiles(t *testing.T) {
 			os.WriteFile(portFile(), []byte("4567"), 0644)
 
 			So(checkExisting(), ShouldEqual, "http://127.0.0.1:4567")
+		})
+	})
+}
+
+func TestNativeClipboardHandler(t *testing.T) {
+	Convey("Given the native clipboard handler", t, func() {
+		origReadNativeClipboardText := readNativeClipboardText
+		t.Cleanup(func() { readNativeClipboardText = origReadNativeClipboardText })
+
+		Convey("Returns clipboard content as JSON when native clipboard is available", func() {
+			readNativeClipboardText = func() (string, error) {
+				return "native clipboard text", nil
+			}
+
+			req := httptest.NewRequest("GET", "/api/native-clipboard", nil)
+			w := httptest.NewRecorder()
+			handleGetNativeClipboard(w, req)
+
+			So(w.Code, ShouldEqual, http.StatusOK)
+			So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
+
+			var payload map[string]string
+			err := json.Unmarshal(w.Body.Bytes(), &payload)
+			So(err, ShouldBeNil)
+			So(payload["text"], ShouldEqual, "native clipboard text")
+		})
+
+		Convey("Returns 501 when native clipboard is unavailable", func() {
+			readNativeClipboardText = func() (string, error) {
+				return "", errors.New("native clipboard unavailable")
+			}
+
+			req := httptest.NewRequest("GET", "/api/native-clipboard", nil)
+			w := httptest.NewRecorder()
+			handleGetNativeClipboard(w, req)
+
+			So(w.Code, ShouldEqual, http.StatusNotImplemented)
 		})
 	})
 }

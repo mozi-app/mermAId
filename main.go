@@ -25,6 +25,7 @@ var staticFiles embed.FS
 var server *http.Server
 var serverURL string
 var diagram *DiagramState
+var readNativeClipboardText = getNativeClipboardText
 
 // stateDirOverride allows tests to redirect state files to a temp directory.
 var stateDirOverride string
@@ -172,6 +173,7 @@ func startServer() bool {
 	mux.HandleFunc("POST /api/download", handleDownload)
 	mux.HandleFunc("GET /api/preferences", handleGetPreferences)
 	mux.HandleFunc("PUT /api/preferences", handleSetPreferences)
+	mux.HandleFunc("GET /api/native-clipboard", handleGetNativeClipboard)
 	mux.HandleFunc("POST /api/focus", handleFocus)
 	mux.HandleFunc("POST /api/quit", handleQuit)
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
@@ -213,6 +215,19 @@ func handleSetPreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleGetNativeClipboard(w http.ResponseWriter, r *http.Request) {
+	text, err := readNativeClipboardText()
+	if err != nil {
+		http.Error(w, "native clipboard unavailable", http.StatusNotImplemented)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"text": text,
+	})
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request) {
