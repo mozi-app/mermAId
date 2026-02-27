@@ -69,37 +69,58 @@ describe('installYankClipboardSync', () => {
 });
 
 describe('syncSystemClipboardToUnnamedRegister', () => {
-    it('loads system clipboard text into the unnamed register', async () => {
+    it('loads native clipboard text into the unnamed register when available', async () => {
         const unnamedRegister = { setText: vi.fn() };
         const registerController = {
             getRegister: vi.fn(() => unnamedRegister),
             unnamedRegister,
         };
         const VimApi = { getRegisterController: () => registerController };
-        const clipboard = { readText: vi.fn(async () => 'outside text') };
+        const fetchImpl = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ text: 'native text' }),
+        }));
+        const clipboard = { readText: vi.fn(async () => 'web text') };
 
-        await expect(syncSystemClipboardToUnnamedRegister(VimApi, clipboard)).resolves.toBe(true);
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, { clipboard, fetchImpl })).resolves.toBe(true);
         expect(registerController.getRegister).toHaveBeenCalledWith('"');
-        expect(clipboard.readText).toHaveBeenCalledTimes(1);
-        expect(unnamedRegister.setText).toHaveBeenCalledWith('outside text', false, false);
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+        expect(clipboard.readText).not.toHaveBeenCalled();
+        expect(unnamedRegister.setText).toHaveBeenCalledWith('native text', false, false);
     });
 
-    it('returns false when clipboard read fails', async () => {
+    it('falls back to web clipboard when native clipboard is unavailable', async () => {
         const unnamedRegister = { setText: vi.fn() };
         const registerController = {
             getRegister: vi.fn(() => unnamedRegister),
             unnamedRegister,
         };
         const VimApi = { getRegisterController: () => registerController };
+        const fetchImpl = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
+        const clipboard = { readText: vi.fn(async () => 'web text') };
+
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, { clipboard, fetchImpl })).resolves.toBe(true);
+        expect(clipboard.readText).toHaveBeenCalledTimes(1);
+        expect(unnamedRegister.setText).toHaveBeenCalledWith('web text', false, false);
+    });
+
+    it('returns false when native and web clipboard reads fail', async () => {
+        const unnamedRegister = { setText: vi.fn() };
+        const registerController = {
+            getRegister: vi.fn(() => unnamedRegister),
+            unnamedRegister,
+        };
+        const VimApi = { getRegisterController: () => registerController };
+        const fetchImpl = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
         const clipboard = { readText: vi.fn(async () => { throw new Error('denied'); }) };
 
-        await expect(syncSystemClipboardToUnnamedRegister(VimApi, clipboard)).resolves.toBe(false);
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, { clipboard, fetchImpl })).resolves.toBe(false);
         expect(unnamedRegister.setText).not.toHaveBeenCalled();
     });
 
     it('returns false when register controller is unavailable', async () => {
-        const clipboard = { readText: vi.fn(async () => 'outside text') };
-        await expect(syncSystemClipboardToUnnamedRegister({}, clipboard)).resolves.toBe(false);
+        const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ text: 'native text' }) }));
+        await expect(syncSystemClipboardToUnnamedRegister({}, { fetchImpl })).resolves.toBe(false);
     });
 
     it('returns false when clipboard api is unavailable', async () => {
@@ -109,7 +130,8 @@ describe('syncSystemClipboardToUnnamedRegister', () => {
             unnamedRegister,
         };
         const VimApi = { getRegisterController: () => registerController };
-        await expect(syncSystemClipboardToUnnamedRegister(VimApi, null)).resolves.toBe(false);
+        const fetchImpl = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
+        await expect(syncSystemClipboardToUnnamedRegister(VimApi, { clipboard: null, fetchImpl })).resolves.toBe(false);
         expect(unnamedRegister.setText).not.toHaveBeenCalled();
     });
 });
@@ -127,7 +149,9 @@ describe('pasteFromSystemClipboard', () => {
         const clipboard = { readText: vi.fn(async () => 'clip text') };
         const cm = { state: { vim: { insertMode: false } } };
 
-        await expect(pasteFromSystemClipboard(VimApi, cm, 'p', clipboard)).resolves.toBe(true);
+        const fetchImpl = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
+
+        await expect(pasteFromSystemClipboard(VimApi, cm, 'p', { clipboard, fetchImpl })).resolves.toBe(true);
         expect(unnamedRegister.setText).toHaveBeenCalledWith('clip text', false, false);
         expect(VimApi.handleKey).toHaveBeenCalledWith(cm, 'p', 'user');
     });
@@ -144,7 +168,9 @@ describe('pasteFromSystemClipboard', () => {
         const clipboard = { readText: vi.fn(async () => { throw new Error('denied'); }) };
         const cm = {};
 
-        await expect(pasteFromSystemClipboard(VimApi, cm, 'P', clipboard)).resolves.toBe(true);
+        const fetchImpl = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
+
+        await expect(pasteFromSystemClipboard(VimApi, cm, 'P', { clipboard, fetchImpl })).resolves.toBe(true);
         expect(unnamedRegister.setText).not.toHaveBeenCalled();
         expect(VimApi.handleKey).toHaveBeenCalledWith(cm, 'P', 'user');
     });

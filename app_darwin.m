@@ -1,5 +1,7 @@
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
+#import <dispatch/dispatch.h>
+#import <string.h>
 
 extern void goShutdown(void);
 extern void goOpenBrowser(void);
@@ -198,6 +200,24 @@ void focusApp(void) {
 		MermaidAppDelegate *delegate = (MermaidAppDelegate *)[NSApp delegate];
 		[delegate.window makeKeyAndOrderFront:nil];
 	});
+}
+
+char *getClipboardText(void) {
+	__block char *result = NULL;
+	void (^readClipboard)(void) = ^{
+		NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+		NSString *text = [pasteboard stringForType:NSPasteboardTypeString];
+		const char *utf8 = text ? [text UTF8String] : "";
+		result = strdup(utf8 ? utf8 : "");
+	};
+
+	if ([NSThread isMainThread]) {
+		readClipboard();
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), readClipboard);
+	}
+
+	return result;
 }
 
 void terminateApp(void) {

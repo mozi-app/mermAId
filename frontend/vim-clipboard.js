@@ -21,9 +21,29 @@ export function installYankClipboardSync(VimApi, clipboard = globalThis.navigato
     return true;
 }
 
-export async function syncSystemClipboardToUnnamedRegister(VimApi, clipboard = globalThis.navigator?.clipboard) {
+async function readNativeClipboard(fetchImpl = globalThis.fetch) {
+    if (typeof fetchImpl !== 'function') {
+        return null;
+    }
+
+    try {
+        const response = await fetchImpl('/api/native-clipboard');
+        if (!response.ok) {
+            return null;
+        }
+        const payload = await response.json();
+        return typeof payload?.text === 'string' ? payload.text : null;
+    } catch {
+        return null;
+    }
+}
+
+export async function syncSystemClipboardToUnnamedRegister(
+    VimApi,
+    { clipboard = globalThis.navigator?.clipboard, fetchImpl = globalThis.fetch } = {},
+) {
     const registerController = VimApi?.getRegisterController?.();
-    if (!registerController || !clipboard || typeof clipboard.readText !== 'function') {
+    if (!registerController) {
         return false;
     }
 
@@ -32,11 +52,19 @@ export async function syncSystemClipboardToUnnamedRegister(VimApi, clipboard = g
         return false;
     }
 
+    const nativeText = await readNativeClipboard(fetchImpl);
+    if (typeof nativeText === 'string') {
+        unnamedRegister.setText(nativeText, false, false);
+        return true;
+    }
+
+    if (!clipboard || typeof clipboard.readText !== 'function') {
+        return false;
+    }
+
     try {
         const text = await clipboard.readText();
-        if (typeof text !== 'string') {
-            return false;
-        }
+        if (typeof text !== 'string') return false;
         unnamedRegister.setText(text, false, false);
         return true;
     } catch {
@@ -44,7 +72,12 @@ export async function syncSystemClipboardToUnnamedRegister(VimApi, clipboard = g
     }
 }
 
-export async function pasteFromSystemClipboard(VimApi, cm, key, clipboard = globalThis.navigator?.clipboard) {
+export async function pasteFromSystemClipboard(
+    VimApi,
+    cm,
+    key,
+    { clipboard = globalThis.navigator?.clipboard, fetchImpl = globalThis.fetch } = {},
+) {
     if (key !== 'p' && key !== 'P') {
         return false;
     }
@@ -52,7 +85,7 @@ export async function pasteFromSystemClipboard(VimApi, cm, key, clipboard = glob
         return false;
     }
 
-    await syncSystemClipboardToUnnamedRegister(VimApi, clipboard);
+    await syncSystemClipboardToUnnamedRegister(VimApi, { clipboard, fetchImpl });
     VimApi.handleKey(cm, key, 'user');
     return true;
 }
