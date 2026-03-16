@@ -6,3 +6,7 @@ mermaid-editor
 *.tar.gz
 
 MermAId Editor.app/
+
+# Legacy agent folder — kept in .gitignore for backward compatibility.
+# New convention: use .agents/ (tracked in git).
+agent/
