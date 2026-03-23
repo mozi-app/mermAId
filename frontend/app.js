@@ -100,6 +100,7 @@ function createSvgPanZoom(svgEl) {
     // Make SVG fill its container; viewBox controls what's visible
     svgEl.setAttribute('width', '100%');
     svgEl.setAttribute('height', '100%');
+    svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     svgEl.style.cursor = 'grab';
 
     let isPanning = false;
