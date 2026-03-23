@@ -187,8 +187,10 @@ function createSvgPanZoom(svgEl) {
     const onMouseMove = (e) => {
         if (!isPanning) return;
         const rect = svgEl.getBoundingClientRect();
-        vb.x = startVB.x - (e.clientX - start.x) * (vb.width / rect.width);
-        vb.y = startVB.y - (e.clientY - start.y) * (vb.height / rect.height);
+        // Use uniform scale matching SVG's preserveAspectRatio="xMidYMid meet"
+        const scale = Math.max(vb.width / rect.width, vb.height / rect.height);
+        vb.x = startVB.x - (e.clientX - start.x) * scale;
+        vb.y = startVB.y - (e.clientY - start.y) * scale;
     };
 
     const onMouseUp = () => {
