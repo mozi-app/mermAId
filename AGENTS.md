@@ -25,3 +25,12 @@ Go backend + JS frontend Mermaid diagram editor with live preview.
 - `make dev` — development mode with watch
 - `make test` — run Go tests only
 - `npm test` — run JS tests only
+
+## Plans
+
+Implementation plans under `.agents/plans/` are session scratch and are
+gitignored. Do not commit them. Agents write a plan once and never update it,
+so the plan goes stale fast. A stale plan misleads the next agent, because the
+agent reads it as current. Decisions that outlive the work go in the PR
+description, the commit message, or a comment at the line where the constraint
+applies. Rules that bind future work go in AGENTS.md.
