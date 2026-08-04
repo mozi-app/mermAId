@@ -10,3 +10,7 @@ MermAId Editor.app/
 # Legacy agent folder — kept in .gitignore for backward compatibility.
 # New convention: use .agents/ (tracked in git).
 agent/
+
+# Implementation plans are session scratch. See the Plans section in AGENTS.md.
+.agents/plans/*
+!.agents/plans/.gitkeep
